@@ -11,6 +11,7 @@ def create_app():
     bcrypt.init_app(app)
 
     with app.app_context():
+        import models
         db.create_all()
 
     return app
