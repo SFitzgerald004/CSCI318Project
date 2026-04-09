@@ -9,8 +9,12 @@ def create_app():
 
     init_firebase(app.config['FIREBASE_CREDENTIALS'])
 
-    #from routes.auth import auth_bp
-    #app.register_blueprint(auth_bp)
+    # Route blueprint registers
+    from routes.trips import trips_bp
+    app.register_blueprint(trips_bp)
+
+    from routes.budget import budget_bp
+    app.register_blueprint(budget_bp)
 
     return app
 
