@@ -1,43 +1,43 @@
 from extensions import db
 from datetime import datetime, timezone
 
-class Recommendation(db.Model):
-    __tablename__ = 'recommendations'
+class Recommendation:
+    COLLECTION = 'recommendations'
 
-    id          = db.Column(db.Integer, primary_key=True)
-    trip_id     = db.Column(db.Integer, db.ForeignKey('trips.id'), nullable=False)
-
-    category    = db.Column(db.String(50),  nullable=False)  # 'hotel','restaurant','attraction','flight','car_rental'
-    source      = db.Column(db.String(50),  nullable=False)  # 'yelp','amadeus','ai_generated'
-    external_id = db.Column(db.String(200), nullable=True)   # Yelp/Amadeus ID
-
-    name        = db.Column(db.String(300), nullable=False)
-    description = db.Column(db.Text,        nullable=True)
-    address     = db.Column(db.String(400), nullable=True)
-    price       = db.Column(db.Float,       nullable=True)
-    price_level = db.Column(db.String(20),  nullable=True)   # '$' through '$$$$'
-    rating      = db.Column(db.Float,       nullable=True)
-    review_count= db.Column(db.Integer,     nullable=True)
-    image_url   = db.Column(db.String(500), nullable=True)
-    booking_url = db.Column(db.String(500), nullable=True)
-    is_ai_pick  = db.Column(db.Boolean,     default=False)
-
-    created_at  = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'trip_id': self.trip_id,
-            'category': self.category,
-            'source': self.source,
-            'name': self.name,
-            'description': self.description,
-            'address': self.address,
-            'price': self.price,
-            'price_level': self.price_level,
-            'rating': self.rating,
-            'review_count': self.review_count,
-            'image_url': self.image_url,
-            'booking_url': self.booking_url,
-            'is_ai_pick': self.is_ai_pick,
+    @staticmethod
+    def create(trip_id, category, source, name, external_id=None,
+                description=None, address=None, price=None, price_level=None,
+                rating=None, review_count=None, image_url=None,
+                booking_url=None, is_ai_pick=False):
+        doc = {
+            'trip_id': trip_id,
+            'category': category,       # 'hotel','restaurant','attraction','flight','car_rental'
+            'source': source,           # 'yelp','amadeus','ai_generated'
+            'external_id': external_id, # Yelp business ID or Amadeus offer ID
+            'name': name,
+            'description': description,
+            'address': address,
+            'price': price,
+            'price_level': price_level, # '$' through '$$$$'
+            'rating': rating,
+            'review_count': review_count,
+            'image_url': image_url,
+            'booking_url': booking_url,
+            'is_ai_pick': is_ai_pick,
+            'created_at': datetime.now(timezone.utc)
         }
+        ref = db.collection(Recommendation.COLLECTION).document()
+        ref.set(doc)
+        return {'id': ref.id, **doc}
+
+    @staticmethod
+    def get_by_trip(trip_id, category=None):
+        query = db.collection(Recommendation.COLLECTION).where('trip_id', '==', trip_id)
+        if category:
+            query = query.where('category', '==', category)
+        docs = query.stream()
+        return [{'id': d.id, **d.to_dict()} for d in docs]
+
+    @staticmethod
+    def delete(rec_id):
+        db.collection(Recommendation.COLLECTION).document(rec_id).delete()

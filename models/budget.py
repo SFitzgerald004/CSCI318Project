@@ -1,35 +1,34 @@
 from extensions import db
 from datetime import datetime, timezone
 
-class BudgetAllocation(db.Model):
-    __tablename__ = 'budget_allocations'
+class BudgetAllocation:
+    COLLECTION = 'budget_allocations'
 
-    id      = db.Column(db.Integer, primary_key=True)
-    trip_id = db.Column(db.Integer, db.ForeignKey('trips.id'), nullable=False, unique=True)
-
-    flights_budget    = db.Column(db.Float, nullable=False)
-    hotel_budget      = db.Column(db.Float, nullable=False)
-    food_budget       = db.Column(db.Float, nullable=False)
-    activities_budget = db.Column(db.Float, nullable=False)
-    transport_budget  = db.Column(db.Float, nullable=False)
-    misc_budget       = db.Column(db.Float, nullable=False)
-
-    flights_pct    = db.Column(db.Float, nullable=False)
-    hotel_pct      = db.Column(db.Float, nullable=False)
-    food_pct       = db.Column(db.Float, nullable=False)
-    activities_pct = db.Column(db.Float, nullable=False)
-    transport_pct  = db.Column(db.Float, nullable=False)
-    misc_pct       = db.Column(db.Float, nullable=False)
-
-    generated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-
-    def to_dict(self):
-        return {
-            'trip_id': self.trip_id,
-            'flights':    {'budget': self.flights_budget,    'pct': self.flights_pct},
-            'hotel':      {'budget': self.hotel_budget,      'pct': self.hotel_pct},
-            'food':       {'budget': self.food_budget,       'pct': self.food_pct},
-            'activities': {'budget': self.activities_budget, 'pct': self.activities_pct},
-            'transport':  {'budget': self.transport_budget,  'pct': self.transport_pct},
-            'misc':       {'budget': self.misc_budget,       'pct': self.misc_pct},
+    @staticmethod
+    def save(trip_id, amounts, percentages):
+        doc = {
+            'trip_id': trip_id,
+            'flights_budget':    amounts['flights'],
+            'hotel_budget':      amounts['hotel'],
+            'food_budget':       amounts['food'],
+            'activities_budget': amounts['activities'],
+            'transport_budget':  amounts['transport'],
+            'misc_budget':       amounts['misc'],
+            'flights_pct':    percentages['flights'],
+            'hotel_pct':      percentages['hotel'],
+            'food_pct':       percentages['food'],
+            'activities_pct': percentages['activities'],
+            'transport_pct':  percentages['transport'],
+            'misc_pct':       percentages['misc'],
+            'generated_at': datetime.now(timezone.utc)
         }
+        # Use trip_id as document ID so there's only ever one allocation per trip
+        db.collection(BudgetAllocation.COLLECTION).document(trip_id).set(doc)
+        return doc
+
+    @staticmethod
+    def get(trip_id):
+        doc = db.collection(BudgetAllocation.COLLECTION).document(trip_id).get()
+        if doc.exists:
+            return doc.to_dict()
+        return None
