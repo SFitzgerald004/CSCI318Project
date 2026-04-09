@@ -6,6 +6,5 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY')
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///vacation_planner.db'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    FIREBASE_CREDENTIALS = os.getenv('FIREBASE_CREDENTIALS')
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')

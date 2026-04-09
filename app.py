@@ -1,18 +1,16 @@
 # app.py
 from flask import Flask
 from config import Config
-from extensions import db, bcrypt
+from extensions import init_firebase
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    db.init_app(app)
-    bcrypt.init_app(app)
+    init_firebase(app.config['FIREBASE_CREDENTIALS'])
 
-    with app.app_context():
-        import models
-        db.create_all()
+    #from routes.auth import auth_bp
+    #app.register_blueprint(auth_bp)
 
     return app
 
