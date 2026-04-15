@@ -4,7 +4,7 @@ from openai import OpenAI
 import openai
 
 client = OpenAI(api_key = os.environ.get('OPENAI_API_KEY'))
-MODEL = 'gpt-40-mini'
+MODEL = 'gpt-4o-mini'
 
 def analyze_budget(trip, allocation):
     departure = trip['departure_date']
@@ -40,7 +40,7 @@ def analyze_budget(trip, allocation):
                 {'role': 'user', 'content': prompt}
             ]
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content, None
     except openai.APIConnectionError:
         return None, 'Could not reach AI service'
     except openai.RateLimitError:
