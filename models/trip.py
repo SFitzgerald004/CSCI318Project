@@ -1,6 +1,6 @@
 # trip.py
 from extensions import db
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 
 class Trip:
     COLLECTION = 'trips'
@@ -14,8 +14,8 @@ class Trip:
             'destination': destination,
             'destination_country': destination_country,
             'total_budget': total_budget,
-            'departure_date': departure_date,
-            'return_date': return_date,
+            'departure_date': datetime.combine(departure_date, time(0, 0), tzinfo=timezone.utc),
+            'return_date': datetime.combine(return_date, time(0, 0), tzinfo=timezone.utc),
             'trip_purpose': trip_purpose,
             'num_travelers': num_travelers,
             'food_prefs': food_prefs or [],                 # list e.g. ['fine_dining', 'street_food']
