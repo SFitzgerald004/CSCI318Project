@@ -34,3 +34,13 @@ def create_trip():
         hotel_prefs=data.get('hotel_prefs', 'mid_range')
     )
     return jsonify(trip), 201
+
+@trips_bp.route('/api/trips/<trip_id>', methods=['GET'])
+@require_auth
+def get_trip(trip_id):
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    if trip['user_id'] != request.uid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    return jsonify(trip), 200
