@@ -6,7 +6,14 @@ export default function Sidebar({ tripName }) {
   const location = useLocation()
   const { user, logout } = useAuth()
 
-  const isActive = (path) => location.pathname === path
+  // const isActive = (path) => location.pathname === path
+  const isActive = (path) => {
+    if (path === `/trips/${id}/recommendations`) {
+      return location.pathname === path || location.pathname.startsWith(`${path}/`)
+    }
+
+    return location.pathname === path
+  }
 
   const linkClass = (path) =>
     `block px-3 py-2 rounded-md text-sm transition-colors ${

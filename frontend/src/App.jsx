@@ -9,6 +9,7 @@ import TripDetailPage from './pages/TripDetailPage'
 import BudgetPage from './pages/BudgetPage'
 import AiAdvisorPage from './pages/AiAdvisorPage'
 import RecommendationsPage from './pages/RecommendationsPage'
+import RecommendationDetailPage from './pages/RecommendationDetailPage'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="budget" element={<BudgetPage />} />
             <Route path="ai" element={<AiAdvisorPage />} />
             <Route path="recommendations" element={<RecommendationsPage />} />
+            <Route path="recommendations/:recId" element={<RecommendationDetailPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/trips" replace />} />
