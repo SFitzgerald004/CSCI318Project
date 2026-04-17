@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-export default function AiChatPanel({ messages }) {
+export default function AiChatPanel({ messages, onSave }) {
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -29,17 +29,27 @@ export default function AiChatPanel({ messages }) {
             }`}>
               {msg.role === 'ai' ? 'AI' : 'U'}
             </div>
-            <div className="bg-[#f5f5f7] rounded-lg px-3 py-2 text-sm text-[#1d1d1f] leading-relaxed max-w-[85%] whitespace-pre-wrap">
-              {msg.content}
+            <div className="flex-1">
+              <div className="bg-[#f5f5f7] rounded-lg px-3 py-2 text-sm text-[#1d1d1f] leading-relaxed max-w-[85%] whitespace-pre-wrap">
+                {msg.content}
+              </div>
+              {/* Save buttons — only shown on recommendation messages */}
+              {msg.items?.length > 0 && (
+                <div className="mt-2 flex flex-col gap-1">
+                  {msg.items.map((item, j) => (
+                    <button
+                      key={j}
+                      onClick={() => onSave(item, msg.focus)}
+                      className="text-xs text-left text-[#0071e3] hover:underline"
+                    >
+                      + Save "{item.name}"
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
-        {messages[messages.length - 1]?.loading && (
-          <div className="flex gap-2">
-            <div className="w-6 h-6 rounded-full bg-[#0071e3] flex items-center justify-center text-xs text-white flex-shrink-0">AI</div>
-            <div className="bg-[#f5f5f7] rounded-lg px-3 py-2 text-sm text-gray-400">Thinking...</div>
-          </div>
-        )}
         <div ref={bottomRef} />
       </div>
     </div>

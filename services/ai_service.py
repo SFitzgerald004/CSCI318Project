@@ -65,20 +65,35 @@ def get_recommendations(trip, allocation, focus):
 
     prompt = f"""I have ${category_budget} for {focus} in {trip['destination']} \
                 for {num_nights} nights. I prefer {trip.get('hotel_prefs', 'mid_range')} \
-                accommodations and I'm traveling for {trip['trip_purpose']}.                                                                   
-                Suggest 3 specific options with approximate price ranges. \
-                Format as a numbered list."""
+                accommodations and I'm traveling for {trip['trip_purpose']}.
+                Suggest 3 specific options. Respond ONLY with a JSON array, no extra text:
+                [
+                  {{
+                    "name": "Place Name",
+                    "description": "Brief description",
+                    "price_level": "$$$",
+                    "rating": 4.5
+                  }}
+                ]"""
     
     try:
         response = client.chat.completions.create(
             model=MODEL,
             max_tokens=600,
             messages=[
-                {'role': 'system', 'content': 'You are a friendly travel advisor. Give practical, specific recommendations.'},
+                {'role': 'system', 'content': 'You are a travel advisor. Respond only with valid JSON, no markdown, no extra text.'},
                 {'role': 'user', 'content': prompt}
             ]
         )
-        return response.choices[0].message.content, None
+        import json
+        raw = response.choices[0].message.content
+        items = json.loads(raw)  # parse the JSON list
+        # Also build a readable version for the chat panel
+        readable = "\n".join([f"{i+1}. {r['name']} ({r.get('price_level','')}) — {r.get('description','')}" for i, r in enumerate(items)])
+        return {'text': readable, 'items': items}, None
+    except json.JSONDecodeError:
+        # If GPT doesn't return valid JSON, fall back to raw text
+        return {'text': raw, 'items': []}, None
     except openai.APIConnectionError:
         return None, 'Could not reach AI service'
     except openai.RateLimitError:

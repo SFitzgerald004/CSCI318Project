@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getAllocation } from '../services/budgetService'
 import { analyzeBudget, getAiRecommendations } from '../services/aiService'
+import { createRecommendation } from '../services/recommendationService'
 import AiInsightCard from '../components/AiInsightCard'
 import AiChatPanel from '../components/AiChatPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -39,13 +40,33 @@ export default function AiAdvisorPage() {
     setActiveAction(focus)
     setMessages((prev) => [...prev, { role: 'user', content: `🔍 Get ${focus} recommendations` }])
     try {
-      const { advice } = await getAiRecommendations(id, focus)
-      setMessages((prev) => [...prev, { role: 'ai', content: advice }])
+      const { advice, items } = await getAiRecommendations(id, focus)
+      // Store items on the message so AiChatPanel can show Save buttons
+      setMessages((prev) => [...prev, { role: 'ai', content: advice, items, focus }])
     } catch {
       toast.error('AI service unavailable')
-      setMessages((prev) => [...prev, { role: 'ai', content: 'Sorry, I couldn\'t get recommendations right now. Please try again.' }])
+      setMessages((prev) => [...prev, { role: 'ai', content: "Sorry, couldn't get recommendations right now." }])
     } finally {
       setActiveAction(null)
+    }
+  }
+
+  async function handleSave(item, focus) {
+    // Map focus to the recommendation category the backend expects
+    const categoryMap = { hotels: 'hotel', food: 'restaurant', activities: 'attraction', overall: 'attraction' }
+    try {
+      await createRecommendation(id, {
+        name: item.name,
+        description: item.description,
+        price_level: item.price_level,
+        rating: item.rating,
+        category: categoryMap[focus] || 'attraction',
+        source: 'ai_generated',
+        is_ai_pick: true,
+      })
+      toast.success(`Saved ${item.name}!`)
+    } catch {
+      toast.error('Failed to save recommendation')
     }
   }
 
@@ -86,7 +107,7 @@ export default function AiAdvisorPage() {
 
       {/* Chat Panel */}
       <div className="mt-4">
-        <AiChatPanel messages={messages} />
+        <AiChatPanel messages={messages} onSave={handleSave} />
       </div>
     </div>
   )
