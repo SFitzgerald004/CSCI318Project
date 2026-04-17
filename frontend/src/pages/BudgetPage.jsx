@@ -30,14 +30,14 @@ export default function BudgetPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  async function handleGenerate() {
+  async function handleGenerate(regenerate = false) {
     setGenerating(true)
     try {
-      const a = await createAllocation(id)
+      const a = await createAllocation(id, regenerate)
       setAllocation(a)
-      toast.success('Budget generated!')
+      toast.success(regenerate ? 'Budget generated!': 'Budget generated!')
     } catch {
-      toast.error('Failed to generate budget')
+      toast.error(`Failed to ${regenerate ? 'regenerate' : 'generate'} budget`)
     } finally {
       setGenerating(false)
     }
@@ -67,7 +67,7 @@ export default function BudgetPage() {
           <p className="text-4xl mb-4">📊</p>
           <h2 className="text-lg font-semibold text-[#1d1d1f]">No budget yet</h2>
           <p className="text-sm text-gray-500 mt-1">Generate a smart budget allocation based on your trip details</p>
-          <button onClick={handleGenerate} disabled={generating}
+          <button onClick={() => handleGenerate(false)} disabled={generating}
             className="mt-4 bg-[#0071e3] text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#0077ed] transition-colors disabled:opacity-50">
             {generating ? 'Generating...' : 'Generate Budget'}
           </button>
@@ -85,7 +85,7 @@ export default function BudgetPage() {
             <div className="bg-white rounded-xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-[#1d1d1f]">Amounts</h2>
-                <button onClick={handleGenerate} disabled={generating}
+                <button onClick={() => handleGenerate(true)} disabled={generating}
                   className="text-xs text-[#0071e3] hover:underline disabled:opacity-50">
                   {generating ? 'Regenerating...' : 'Regenerate'}
                 </button>

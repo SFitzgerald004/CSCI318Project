@@ -18,6 +18,9 @@ def create_allocation(trip_id):
     if trip['user_id'] != request.uid:
         return jsonify({'error': 'Unauthorized'}), 403
     
+    payload = request.get_json(silent=True) or {}
+    regenerate = payload.get('regenerate', False)
+
     departure = trip['departure_date']
     return_date = trip['return_date']
 
@@ -36,7 +39,9 @@ def create_allocation(trip_id):
         destination_country=trip.get('destination_country', ''),
         hotel_prefs=trip.get('hotel_prefs', 'mid_range'),
         food_prefs=trip.get('food_prefs', []),
-        activity_prefs=trip.get('activity_prefs', [])
+        activity_prefs=trip.get('activity_prefs', []),
+        use_jitter=regenerate,
+        jitter_spread=5.0
     )
 
     allocation = BudgetAllocation.save(trip_id, result['amounts'], result['percentages'])

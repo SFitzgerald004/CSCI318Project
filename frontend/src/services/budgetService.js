@@ -5,8 +5,8 @@ export async function getAllocation(tripId) {
   return data
 }
 
-export async function createAllocation(tripId) {
-  const { data } = await api.post(`/budget/${tripId}/allocate`)
+export async function createAllocation(tripId, regenerate = false) {
+  const { data } = await api.post(`/budget/${tripId}/allocate`, { regenerate })
   return data
 }
 

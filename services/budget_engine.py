@@ -1,4 +1,5 @@
 # budget_engine.py
+import random
 
 HIGH_COST_COUNTRIES = ['Switzerland', 'Norway', 'Japan', 'Australia', 'United Kingdom', 'Denmark', 'Iceland']
 LOW_COST_COUNTRIES = ['Mexico', 'Thailand', 'Vietnam', 'Indonesia', 'Colombia', 'Portugal', 'Hungary']
@@ -49,19 +50,19 @@ def apply_adjustments(weights, num_nights, destination_country, hotel_prefs, foo
     if 'fine_dining' in food_prefs:
         w['food'] += 5
         w['misc'] -=3
-    if 'street_food' or 'budget_eats' in food_prefs:
+    if 'street_food' in food_prefs or 'budget_eats' in food_prefs:
         w['food'] -= 3
         w['activities'] += 3
 
     # Activity preferences
-    if 'museums' or 'attractions' in activity_prefs:
+    if 'museums' in activity_prefs or 'attractions' in activity_prefs:
         w['activities'] += 3
         w['misc'] -= 3
     if 'nightlife' in activity_prefs:
         w['activities'] += 4
         w['food'] -= 2
         w['misc'] -= 2
-    if 'beaches' or 'hiking' in activity_prefs:
+    if 'beaches' in activity_prefs or 'hiking' in activity_prefs:
         w['activities'] += 2
         w['transport'] += 2
         w['hotel'] -= 4
@@ -76,13 +77,25 @@ def normalize(weights):
     total = sum(weights.values())
     return {k: round((v / total) * 100, 2) for k, v in weights.items()}
 
+# Allows for regenerating the budget allocation for a trip
+def add_weight_jitter(weights, spread=1.0):
+    jittered = {}
+    for key, value in weights.items():
+        jittered[key] = value + random.uniform(-spread, spread)
+    return jittered
+
 # Budget allocation
-def allocate_budget(total_budget, trip_purpose, num_nights, destination_country, hotel_prefs = 'mid_range', food_prefs = None, activity_prefs = None):
+def allocate_budget(total_budget, trip_purpose, num_nights, destination_country, hotel_prefs = 'mid_range', food_prefs = None, activity_prefs = None, use_jitter=True, jitter_spread=1.0):
     food_prefs = food_prefs or []
     activity_prefs = activity_prefs or []
 
     base = BASE_WEIGHTS.get(trip_purpose, BASE_WEIGHTS['vacation']).copy()
+
     adjusted = apply_adjustments(base, num_nights, destination_country, hotel_prefs, food_prefs, activity_prefs)
+
+    # New jitter to allow for budget regeneration to apply
+    if use_jitter:
+        adjusted = add_weight_jitter(adjusted, spread=jitter_spread)
 
     pcts = normalize(adjusted)
     amounts = {k: round((v / 100) * total_budget, 2) for k, v in pcts.items()}
