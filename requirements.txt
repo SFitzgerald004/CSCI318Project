@@ -4,4 +4,4 @@ firebase-admin>=6.0
 openai>=1.0
 python-dotenv>=1.0                                                                                                                   
 pytest>=8.0
-urllib
+urllib3
