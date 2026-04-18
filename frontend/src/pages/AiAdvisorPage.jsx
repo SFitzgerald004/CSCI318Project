@@ -58,8 +58,6 @@ export default function AiAdvisorPage() {
       await createRecommendation(id, {
         name: item.name,
         description: item.description,
-        price_level: item.price_level,
-        rating: item.rating,
         category: categoryMap[focus] || 'attraction',
         source: 'ai_generated',
         is_ai_pick: true,

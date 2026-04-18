@@ -45,10 +45,9 @@ export default function RecommendationCard({ rec, onDelete }) {
         <h3 className="text-sm font-semibold text-[#1d1d1f]">{rec.name}</h3>
         {rec.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{rec.description}</p>}
 
-        <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+        <div className="flex items-center justify-between gap-3 mt-3 text-xs text-gray-500">
           {rec.rating && <span>⭐ {rec.rating}</span>}
           {rec.price_level && <span>{rec.price_level}</span>}
-          {rec.address && <span className="truncate">{rec.address}</span>}
         </div>
       </Link>
     </div>

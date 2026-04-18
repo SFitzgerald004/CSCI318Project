@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from models.trip import Trip
 from models.recommendation import Recommendation
 from routes.auth import require_auth
+from services.google_places_service import enrich_recommendation
 
 recommendations_bp = Blueprint('recommendations', __name__)
 
@@ -30,22 +31,31 @@ def create_recommendation(trip_id):
                                                                                                                                                 
     data = request.get_json()
     if not data.get('category') or not data.get('source') or not data.get('name'):                                                             
-        return jsonify({'error': 'category, source, and name are required'}), 400                                                              
+        return jsonify({'error': 'category, source, and name are required'}), 400    
+
+    # Uses new enriching service function
+    enriched = {}
+    if data.get("source") == ("ai_generated"):
+        enriched = enrich_recommendation(
+            name=data["name"],
+            category=data["category"],
+            trip=trip
+        )
 
     rec = Recommendation.create(                                                                                                               
         trip_id=trip_id,
         category=data['category'],
         source=data['source'],
         name=data['name'],                                                                                                                     
-        external_id=data.get('external_id'),
+        external_id=enriched.get('external_id') or data.get('external_id'),
         description=data.get('description'),                                                                                                   
-        address=data.get('address'),
+        address=enriched.get('address') or data.get('address'),
         price=data.get('price'),
-        price_level=data.get('price_level'),                                                                                                   
-        rating=data.get('rating'),
-        review_count=data.get('review_count'),                                                                                                 
+        price_level=enriched.get('price_level') or data.get('price_level'),
+        rating=enriched.get('rating') if enriched.get('rating') is not None else data.get('rating'),
+        review_count=enriched.get('review_count') if enriched.get('review_count') is not None else data.get('review_count'),
         image_url=data.get('image_url'),
-        booking_url=data.get('booking_url'),                                                                                                   
+        booking_url=enriched.get('booking_url') or data.get('booking_url'),
         is_ai_pick=data.get('is_ai_pick', False)
     )                                                                                                                                          
     return jsonify(rec), 201

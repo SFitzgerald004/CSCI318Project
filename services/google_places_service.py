@@ -35,7 +35,7 @@ CATEGORY_HINTS = {
 
 def normalize_text(value):
     if not value:
-        return "nil"
+        return ""
     value = value.lower()
     value = re.sub(r"[^a-z0-9\s]", " ", value)
     value = re.sub(r"\s+", " ", value).strip()
@@ -76,15 +76,20 @@ def google_api_key():
 
 def search_place(name, category, trip):
     api_key = google_api_key()
+    print("[google_places] api key present:", bool(api_key))
+
     if not api_key:
+        print("[google_places] missing GOOGLE_MAPS_API_KEY")
         return None
-    
+
     payload = build_payload(name, category, trip)
+    print("[google_places] payload:", payload)
+
     request = Request(
         TEXT_SEARCH_URL,
-        data = json.dumps(payload).encode("utf-8"),
+        data=json.dumps(payload).encode("utf-8"),
         headers={
-            "Content-Type": "application,json",
+            "Content-Type": "application/json",
             "X-Goog-Api-Key": api_key,
             "X-Goog-FieldMask": FIELD_MASK
         },
@@ -93,14 +98,30 @@ def search_place(name, category, trip):
 
     try:
         with urlopen(request, timeout=8) as response:
-            data=json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+            raw_body = response.read().decode("utf-8")
+            print("[google_places] raw response:", raw_body)
+            data = json.loads(raw_body)
+    except HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        print("[google_places] HTTPError status:", exc.code)
+        print("[google_places] HTTPError body:", error_body)
         return None
-    
+    except URLError as exc:
+        print("[google_places] URLError:", exc)
+        return None
+    except TimeoutError:
+        print("[google_places] TimeoutError")
+        return None
+    except json.JSONDecodeError as exc:
+        print("[google_places] JSON decode error:", exc)
+        return None
+
     places = data.get("places", [])
+    print("[google_places] places returned:", len(places))
+
     if not places:
         return None
-    
+
     ranked = sorted(
         places,
         key=lambda place: (
@@ -112,11 +133,17 @@ def search_place(name, category, trip):
     )
 
     best = ranked[0]
-    score = name_overlap_score(name, best.get("displayName", {}).get("text", ""))
+    best_name = best.get("displayName", {}).get("text", "")
+    score = name_overlap_score(name, best_name)
+
+    print("[google_places] best match:", best_name)
+    print("[google_places] best score:", score)
+    print("[google_places] normalized result:", normalize_place(best))
 
     if score < 0.5:
+        print("[google_places] rejected best match due to low score")
         return None
-    
+
     return best
 
 def normalize_place(place):
@@ -132,6 +159,6 @@ def normalize_place(place):
         "booking_url": place.get("websiteUri") or place.get("googleMapsUri")
     }
 
-def enrich_recommendations(name, category, trip):
+def enrich_recommendation(name, category, trip):
     place = search_place(name, category, trip)
     return normalize_place(place)

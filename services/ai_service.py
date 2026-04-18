@@ -63,16 +63,16 @@ def get_recommendations(trip, allocation, focus):
         return_date = return_date.date()
     num_nights = (return_date - departure).days
 
-    prompt = f"""I have ${category_budget} for {focus} in {trip['destination']} \
+    prompt = f"""
+                I have ${category_budget} for {focus} in {trip['destination']} \
                 for {num_nights} nights. I prefer {trip.get('hotel_prefs', 'mid_range')} \
                 accommodations and I'm traveling for {trip['trip_purpose']}.
-                Suggest 3 specific options. Respond ONLY with a JSON array, no extra text:
+                Suggest 3 specific real-world options. Do not invent ratings, addresses, or review counts.
+                Respond ONLY with a JSON array, no extra text:
                 [
                   {{
                     "name": "Place Name",
                     "description": "Brief description",
-                    "price_level": "$$$",
-                    "rating": 4.5
                   }}
                 ]"""
     
