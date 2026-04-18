@@ -16,17 +16,7 @@ export default function AiChatPanel({ messages, onSave, onSend, sending }) {
     await onSend(message)
   }
 
-  if (messages.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm flex flex-col h-80">
-        <div className="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-[#1d1d1f]">💬 AI Chat</div>
-        <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
-          Click an action above to start
-        </div>
-      </div>
-    )
-  }
-
+  // Always show the chat panel and input, even if there are no messages
   return (
     <div className="bg-white rounded-xl shadow-sm flex flex-col h-96">
       <div className="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-[#1d1d1f]">
