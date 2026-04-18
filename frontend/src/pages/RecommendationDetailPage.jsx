@@ -50,6 +50,7 @@ export default function RecommendationDetailPage() {
             {rec.category}
           </span>
 
+          {/*
           <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">
             {rec.source?.replace('_', ' ')}
           </span>
@@ -59,6 +60,7 @@ export default function RecommendationDetailPage() {
               AI Pick
             </span>
           )}
+          */}
         </div>
 
         <h1 className="text-3xl font-semibold text-[#1d1d1f]">{rec.name}</h1>

@@ -38,8 +38,8 @@ export default function RecommendationCard({ rec, onDelete }) {
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${CATEGORY_COLORS[rec.category] || 'bg-gray-100 text-gray-700'}`}>
             {rec.category}
           </span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">{rec.source?.replace('_', ' ')}</span>
-          {rec.is_ai_pick && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">AI Pick</span>}
+          {/* <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">{rec.source?.replace('_', ' ')}</span> */}
+          {/* {rec.is_ai_pick && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">AI Pick</span>} */}
         </div>
 
         <h3 className="text-sm font-semibold text-[#1d1d1f]">{rec.name}</h3>
