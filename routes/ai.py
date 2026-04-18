@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from models.trip import Trip
 from models.budget import BudgetAllocation
 from services.ai_service import analyze_budget, get_recommendations
+from services.ai_service import chat_with_ai
 from routes.auth import require_auth
 
 ai_bp = Blueprint('ai', __name__)
@@ -46,3 +47,29 @@ def recommend(trip_id):
     if error:
         return jsonify({'error': error}), 503
     return jsonify({'advice': result['text'], 'items': result['items'], 'focus': focus}), 200
+
+# New route to allow for chatting directly with the AI agent
+@ai_bp.route('/api/ai/<trip_id>/chat', methods=['POST'])
+@require_auth
+def ai_chat(trip_id):
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    if trip['user_id'] != request.uid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Empty request'}), 400
+    
+    user_message = (data.get("message") or "").strip()
+    if not user_message:
+        return jsonify({"error": "message is required"}), 400
+    
+    history = data.get("history", [])
+
+    reply, error = chat_with_ai(trip, user_message, history)
+    if error:
+        return jsonify({"error": error}), 503
+
+    return jsonify({'response': reply})

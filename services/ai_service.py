@@ -100,3 +100,40 @@ def get_recommendations(trip, allocation, focus):
         return None, 'AI service rate limit hit, try again shortly'
     except openai.APIStatusError as e:
         return None, f'AI error: {e.status_code}'
+    
+# Used to chat with AI model in trip
+def chat_with_ai(trip, user_message, history=None):
+    history = history or []
+
+    prompt = f"""
+        You are a travel assistant helping with a trip to {trip['destination']}. \
+        The trip purpose is {trip['trip_purpose']}. \
+        Give practical, concise answers. If you make suggestions, keep them relevant to the trip.
+    """
+
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+
+    for item in history:
+        role = item.get("role")
+        content = item.get("content")
+        if role in ["user", "assistant"] and content:
+            messages.append({"role": role, "content": content})
+
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            max_tokens=600,
+            messages=messages
+        )
+        return response.choices[0].message.content, None
+    except openai.APIConnectionError:
+        return None, "Could not reach AI service"
+    except openai.RateLimitError:
+        return None, "AI service rate limit reached"
+    except openai.APIStatusError as e:
+        return None, f"AI error: {e.status_code}"
+    
