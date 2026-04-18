@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getAllocation } from '../services/budgetService'
-import { analyzeBudget, getAiRecommendations } from '../services/aiService'
+import { analyzeBudget, getAiRecommendations, chatWithAi } from '../services/aiService'
 import { createRecommendation } from '../services/recommendationService'
 import AiInsightCard from '../components/AiInsightCard'
 import AiChatPanel from '../components/AiChatPanel'
@@ -14,6 +14,7 @@ export default function AiAdvisorPage() {
   const [loading, setLoading] = useState(true)
   const [activeAction, setActiveAction] = useState(null)
   const [messages, setMessages] = useState([])
+  const [sendingChat, setSendingChat] = useState(false)
 
   useEffect(() => {
     getAllocation(id)
@@ -84,6 +85,33 @@ export default function AiAdvisorPage() {
     )
   }
 
+  async function handleChatSend(content) {
+    const nextUserMessage = { role: 'user', content }
+    const nextMessages = [...messages, nextUserMessage]
+
+    setMessages(nextMessages)
+    setSendingChat(true)
+
+    try {
+      const history = messages.map((msg) => ({
+        role: msg.role === 'ai' ? 'assistant' : 'user',
+        content: msg.content
+      }))
+
+      const { response } = await chatWithAi(id, content, history)
+
+      setMessages((prev) => [...prev, { role: 'ai', content: response }])
+    } catch {
+      toast.error('AI chat unavailable')
+      setMessages((prev) => [
+        ...prev,
+        { role: 'ai', content: "Sorry, I couldn't respond right now. Please try again."}
+      ])
+    } finally {
+      setSendingChat(false)
+    }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-semibold text-[#1d1d1f]">AI Advisor</h1>
@@ -105,7 +133,12 @@ export default function AiAdvisorPage() {
 
       {/* Chat Panel */}
       <div className="mt-4">
-        <AiChatPanel messages={messages} onSave={handleSave} />
+        <AiChatPanel
+          messages={messages}
+          onSave={handleSave}
+          onSend={handleChatSend}
+          sending={sendingChat}
+        />
       </div>
     </div>
   )

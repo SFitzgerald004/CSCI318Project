@@ -9,3 +9,11 @@ export async function getAiRecommendations(tripId, focus = 'overall') {
   const { data } = await api.post(`/ai/${tripId}/recommend`, { focus })
   return data
 }
+
+export async function chatWithAi(tripId, message, history = []) {
+  const { data } = await api.post(`/ai/${tripId}/chat`, {
+    message,
+    history
+  })
+  return data
+}
