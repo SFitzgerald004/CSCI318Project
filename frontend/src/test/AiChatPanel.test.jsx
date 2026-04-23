@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AiChatPanel from '../components/AiChatPanel';
 
 describe('<AiChatPanel>', () => {
@@ -35,5 +35,50 @@ describe('<AiChatPanel>', () => {
   it('shows thinking shimmer when thinking prop is true', () => {
     const { container } = render(<AiChatPanel messages={[]} thinking={true} />);
     expect(container.querySelector('[data-testid="thinking-dots"]')).toBeInTheDocument();
+  });
+
+  it('shows Save this button when AI message has canSave and onSave callback', () => {
+    render(<AiChatPanel
+      messages={[{ role: 'ai', content: 'Hotel picks', canSave: true, category: 'hotel' }]}
+      thinking={false}
+      onSaveRecommendation={vi.fn()}
+    />);
+    expect(screen.getByRole('button', { name: /save this/i })).toBeInTheDocument();
+  });
+
+  it('does not show Save button when canSave is false', () => {
+    render(<AiChatPanel
+      messages={[{ role: 'ai', content: 'Overall advice', canSave: false }]}
+      thinking={false}
+      onSaveRecommendation={vi.fn()}
+    />);
+    expect(screen.queryByRole('button', { name: /save this/i })).not.toBeInTheDocument();
+  });
+
+  it('switches to "Saved" state after successful save', async () => {
+    const onSave = vi.fn().mockResolvedValue({ id: 'new-rec' });
+    render(<AiChatPanel
+      messages={[{ role: 'ai', content: 'Hotel picks', canSave: true, category: 'hotel' }]}
+      thinking={false}
+      onSaveRecommendation={onSave}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: /save this/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /saved/i })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /saved/i })).toBeDisabled();
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays in unsaved state when save throws', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('fail'));
+    render(<AiChatPanel
+      messages={[{ role: 'ai', content: 'Hotel picks', canSave: true, category: 'hotel' }]}
+      thinking={false}
+      onSaveRecommendation={onSave}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: /save this/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    // After failure, button is still "Save this", not "Saved"
+    expect(screen.getByRole('button', { name: /save this/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^saved$/i })).not.toBeInTheDocument();
   });
 });

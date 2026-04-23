@@ -24,7 +24,7 @@ export default function RecommendationCard({ rec, onDelete }) {
 
       <h3 className="type-body-emphasis">{rec.name}</h3>
       {rec.description && (
-        <p className="type-caption text-text-secondary mt-1 line-clamp-2">{rec.description}</p>
+        <p className="type-caption text-text-secondary mt-1 whitespace-pre-wrap">{rec.description}</p>
       )}
 
       <div className="flex items-center gap-3 mt-3 type-caption text-text-tertiary">

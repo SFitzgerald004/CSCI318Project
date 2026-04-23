@@ -1,7 +1,52 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChatBubbleLeftEllipsisIcon, BookmarkIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import ToolBadgeRow from './ToolBadgeRow';
 import Button from './ui/Button';
+
+function SaveButton({ msg, onSave }) {
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function handleClick() {
+    setSaving(true);
+    try {
+      await onSave(msg);
+      setSaved(true);
+    } catch {
+      // Parent component surfaces toast; we just stay unsaved.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (saved) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={CheckCircleIcon}
+        disabled
+        className="!text-green-600"
+        data-testid="save-button-saved"
+      >
+        Saved
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      icon={BookmarkIcon}
+      loading={saving}
+      onClick={handleClick}
+    >
+      Save this
+    </Button>
+  );
+}
 
 export default function AiChatPanel({ messages, thinking, onSaveRecommendation }) {
   const bottomRef = useRef(null);
@@ -45,14 +90,7 @@ export default function AiChatPanel({ messages, thinking, onSaveRecommendation }
               {msg.role === 'ai' && <ToolBadgeRow toolsUsed={msg.tools_used} />}
               {msg.role === 'ai' && msg.canSave && onSaveRecommendation && (
                 <div className="mt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={BookmarkIcon}
-                    onClick={() => onSaveRecommendation(msg)}
-                  >
-                    Save this
-                  </Button>
+                  <SaveButton msg={msg} onSave={onSaveRecommendation} />
                 </div>
               )}
             </div>

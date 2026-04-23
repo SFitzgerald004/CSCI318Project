@@ -72,12 +72,12 @@ export default function AiAdvisorPage() {
   async function handleSaveRecommendation(msg) {
     if (!msg.category) {
       toast.error('Cannot save this type of recommendation');
-      return;
+      throw new Error('No category');
     }
     try {
       const firstLine = msg.content.split('\n').find((line) => line.trim().length > 0) || 'AI suggestion';
       const name = firstLine.slice(0, 80);
-      await createRecommendation(id, {
+      const rec = await createRecommendation(id, {
         category: msg.category,
         source: 'ai_generated',
         name,
@@ -85,8 +85,10 @@ export default function AiAdvisorPage() {
         is_ai_pick: true,
       });
       toast.success('Saved');
-    } catch {
+      return rec;
+    } catch (err) {
       toast.error('Could not save');
+      throw err;
     }
   }
 
