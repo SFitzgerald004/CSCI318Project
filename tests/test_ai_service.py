@@ -322,3 +322,68 @@ class TestRunWithToolsLimits:
         )
         assert content is None
         assert "rate limit" in error.lower()
+
+
+class TestAnalyzeBudgetReturnShape:
+    @patch("services.ai_service._run_with_tools")
+    def test_returns_three_tuple_with_tools_used(self, mock_run):
+        mock_run.return_value = ("some advice", ["get_savings_progress"], None)
+
+        from services.ai_service import analyze_budget
+        trip = {
+            "destination": "Paris, France",
+            "trip_purpose": "vacation",
+            "num_travelers": 2,
+            "total_budget": 3000,
+            "departure_date": date(2026, 7, 1),
+            "return_date": date(2026, 7, 8),
+            "food_prefs": ["fine_dining"],
+            "activity_prefs": ["museums"],
+            "hotel_prefs": "mid_range",
+        }
+        allocation = {
+            "flights_budget": 900, "flights_pct": 30,
+            "hotel_budget": 800, "hotel_pct": 27,
+            "food_budget": 600, "food_pct": 20,
+            "activities_budget": 400, "activities_pct": 13,
+            "transport_budget": 200, "transport_pct": 7,
+            "misc_budget": 100, "misc_pct": 3,
+        }
+
+        content, tools_used, error = analyze_budget(trip, allocation)
+        assert content == "some advice"
+        assert tools_used == ["get_savings_progress"]
+        assert error is None
+        mock_run.assert_called_once()
+
+
+class TestGetRecommendationsReturnShape:
+    @patch("services.ai_service._run_with_tools")
+    def test_returns_three_tuple_with_tools_used(self, mock_run):
+        mock_run.return_value = ("3 options", ["get_saved_recommendations"], None)
+
+        from services.ai_service import get_recommendations
+        trip = {
+            "destination": "Tokyo, Japan",
+            "trip_purpose": "vacation",
+            "num_travelers": 1,
+            "total_budget": 2500,
+            "departure_date": date(2026, 9, 1),
+            "return_date": date(2026, 9, 8),
+            "food_prefs": ["street_food"],
+            "activity_prefs": ["museums"],
+            "hotel_prefs": "budget",
+        }
+        allocation = {
+            "flights_budget": 900, "flights_pct": 36,
+            "hotel_budget": 700, "hotel_pct": 28,
+            "food_budget": 400, "food_pct": 16,
+            "activities_budget": 300, "activities_pct": 12,
+            "transport_budget": 150, "transport_pct": 6,
+            "misc_budget": 50, "misc_pct": 2,
+        }
+
+        content, tools_used, error = get_recommendations(trip, allocation, focus="hotels")
+        assert content == "3 options"
+        assert tools_used == ["get_saved_recommendations"]
+        assert error is None
