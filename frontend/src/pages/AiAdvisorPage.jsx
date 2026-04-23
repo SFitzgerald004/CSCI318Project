@@ -1,93 +1,146 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { getAllocation } from '../services/budgetService'
-import { analyzeBudget, getAiRecommendations } from '../services/aiService'
-import AiInsightCard from '../components/AiInsightCard'
-import AiChatPanel from '../components/AiChatPanel'
-import LoadingSpinner from '../components/LoadingSpinner'
-import toast from 'react-hot-toast'
+import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import {
+  ChartBarIcon,
+  GlobeAltIcon,
+  BuildingOffice2Icon,
+  CakeIcon,
+  MapPinIcon,
+  SparklesIcon,
+} from '@heroicons/react/24/outline';
+import { getAllocation } from '../services/budgetService';
+import { analyzeBudget, getAiRecommendations } from '../services/aiService';
+import { createRecommendation } from '../services/recommendationService';
+import AiInsightCard from '../components/AiInsightCard';
+import AiChatPanel from '../components/AiChatPanel';
+import Skeleton from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+import Button from '../components/ui/Button';
+import { useDelayedLoading } from '../hooks/useDelayedLoading';
+import toast from 'react-hot-toast';
 
 export default function AiAdvisorPage() {
-  const { id } = useParams()
-  const [hasBudget, setHasBudget] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [activeAction, setActiveAction] = useState(null)
-  const [messages, setMessages] = useState([])
+  const { id } = useParams();
+  const [hasBudget, setHasBudget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeAction, setActiveAction] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const showSkeleton = useDelayedLoading(loading);
 
   useEffect(() => {
     getAllocation(id)
       .then(() => setHasBudget(true))
       .catch(() => setHasBudget(false))
-      .finally(() => setLoading(false))
-  }, [id])
+      .finally(() => setLoading(false));
+  }, [id]);
 
   async function handleAnalyze() {
-    setActiveAction('analyze')
-    setMessages((prev) => [...prev, { role: 'user', content: '📊 Analyze my budget allocation' }])
+    setActiveAction('analyze');
+    setMessages((prev) => [...prev, { role: 'user', content: 'Analyze my budget allocation' }]);
     try {
-      const { advice } = await analyzeBudget(id)
-      setMessages((prev) => [...prev, { role: 'ai', content: advice }])
+      const { advice, tools_used } = await analyzeBudget(id);
+      setMessages((prev) => [...prev, { role: 'ai', content: advice, tools_used }]);
     } catch {
-      toast.error('AI service unavailable')
-      setMessages((prev) => [...prev, { role: 'ai', content: 'Sorry, I couldn\'t analyze your budget right now. Please try again.' }])
+      toast.error('AI service unavailable');
+      setMessages((prev) => [...prev, { role: 'ai', content: "Sorry, I couldn't analyze your budget right now. Please try again." }]);
     } finally {
-      setActiveAction(null)
+      setActiveAction(null);
     }
   }
 
   async function handleRecommend(focus) {
-    setActiveAction(focus)
-    setMessages((prev) => [...prev, { role: 'user', content: `🔍 Get ${focus} recommendations` }])
+    setActiveAction(focus);
+    setMessages((prev) => [...prev, { role: 'user', content: `Get ${focus} recommendations` }]);
     try {
-      const { advice } = await getAiRecommendations(id, focus)
-      setMessages((prev) => [...prev, { role: 'ai', content: advice }])
+      const { advice, tools_used } = await getAiRecommendations(id, focus);
+      setMessages((prev) => [...prev, {
+        role: 'ai',
+        content: advice,
+        tools_used,
+        canSave: true,
+        category: focus === 'hotels' ? 'hotel' : focus === 'food' ? 'restaurant' : focus === 'activities' ? 'attraction' : null,
+      }]);
     } catch {
-      toast.error('AI service unavailable')
-      setMessages((prev) => [...prev, { role: 'ai', content: 'Sorry, I couldn\'t get recommendations right now. Please try again.' }])
+      toast.error('AI service unavailable');
+      setMessages((prev) => [...prev, { role: 'ai', content: "Sorry, I couldn't get recommendations right now. Please try again." }]);
     } finally {
-      setActiveAction(null)
+      setActiveAction(null);
     }
   }
 
-  if (loading) return <LoadingSpinner />
+  async function handleSaveRecommendation(msg) {
+    if (!msg.category) {
+      toast.error('Cannot save this type of recommendation');
+      return;
+    }
+    try {
+      const firstLine = msg.content.split('\n').find((line) => line.trim().length > 0) || 'AI suggestion';
+      const name = firstLine.slice(0, 80);
+      await createRecommendation(id, {
+        category: msg.category,
+        source: 'ai_generated',
+        name,
+        description: msg.content.slice(0, 400),
+        is_ai_pick: true,
+      });
+      toast.success('Saved');
+    } catch {
+      toast.error('Could not save');
+    }
+  }
+
+  if (showSkeleton) {
+    return <div><Skeleton variant="title" className="w-48 mb-6" /><Skeleton variant="card" /></div>;
+  }
 
   if (!hasBudget) {
     return (
-      <div className="text-center py-16">
-        <p className="text-4xl mb-4">📊</p>
-        <h2 className="text-lg font-semibold text-[#1d1d1f]">Generate a budget first</h2>
-        <p className="text-sm text-gray-500 mt-1">The AI advisor needs a budget allocation to work with.</p>
-        <Link to={`/trips/${id}/budget`}
-          className="mt-4 inline-block bg-[#0071e3] text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#0077ed] transition-colors">
-          Go to Budget
-        </Link>
-      </div>
-    )
+      <EmptyState
+        icon={<ChartBarIcon className="w-12 h-12" />}
+        title="Generate a budget first"
+        description="The AI advisor needs a budget allocation to work with."
+        action={
+          <Link to={`/trips/${id}/budget`}>
+            <Button>Go to Budget</Button>
+          </Link>
+        }
+      />
+    );
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#1d1d1f]">AI Advisor</h1>
-      <p className="text-sm text-gray-500 mt-1">Get AI-powered budget analysis and recommendations</p>
+      <h1 className="type-section-heading">AI Advisor</h1>
+      <p className="type-caption text-text-secondary mt-1">Get AI-powered budget analysis and recommendations</p>
 
-      {/* Insight Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
-        <AiInsightCard icon="📊" title="Analyze Budget" description="Get AI feedback on your allocation"
+        <AiInsightCard icon={ChartBarIcon} title="Analyze Budget" description="Get AI feedback on your allocation"
           onClick={handleAnalyze} loading={activeAction === 'analyze'} />
-        <AiInsightCard icon="🌍" title="Overall" description="Get overall recommendations"
+        <AiInsightCard icon={GlobeAltIcon} title="Overall" description="Get overall recommendations"
           onClick={() => handleRecommend('overall')} loading={activeAction === 'overall'} />
-        <AiInsightCard icon="🏨" title="Hotels" description="Get hotel picks"
+        <AiInsightCard icon={BuildingOffice2Icon} title="Hotels" description="Get hotel picks"
           onClick={() => handleRecommend('hotels')} loading={activeAction === 'hotels'} />
-        <AiInsightCard icon="🍽️" title="Food" description="Get food picks"
+        <AiInsightCard icon={CakeIcon} title="Food" description="Get food picks"
           onClick={() => handleRecommend('food')} loading={activeAction === 'food'} />
-        <AiInsightCard icon="🎯" title="Activities" description="Get activity picks"
+        <AiInsightCard icon={MapPinIcon} title="Activities" description="Get activity picks"
           onClick={() => handleRecommend('activities')} loading={activeAction === 'activities'} />
       </div>
 
-      {/* Chat Panel */}
-      <div className="mt-4">
-        <AiChatPanel messages={messages} />
+      <div className="mt-6">
+        {messages.length === 0 && !activeAction ? (
+          <EmptyState
+            icon={<SparklesIcon className="w-12 h-12" />}
+            title="Ask the AI"
+            description="Click an action above to start a conversation."
+          />
+        ) : (
+          <AiChatPanel
+            messages={messages}
+            thinking={activeAction !== null}
+            onSaveRecommendation={handleSaveRecommendation}
+          />
+        )}
       </div>
     </div>
-  )
+  );
 }
