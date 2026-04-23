@@ -141,14 +141,14 @@ class TestAiRoutes:
         assert data["advice"] == "3 hotels listed"
         assert data["tools_used"] == ["get_saved_recommendations"]
         assert "message_id" in data
-        assert len(data["message_id"]) == 36  # UUID string length
 
     @patch("routes.ai.analyze_budget")
+    @patch("routes.ai.AiMessage")
     @patch("routes.ai.BudgetAllocation")
     @patch("routes.ai.Trip")
     @patch("routes.ai.require_auth", lambda f: mock_auth(f))
     def test_analyze_view_returns_enriched_shape(
-        self, MockTrip, MockAllocation, mock_analyze, app
+        self, MockTrip, MockAllocation, MockAiMsg, mock_analyze, app
     ):
         MockTrip.get.return_value = {"user_id": "test-user-123"}
         MockAllocation.get.return_value = {
@@ -160,6 +160,8 @@ class TestAiRoutes:
             "misc_budget": 100, "misc_pct": 3,
         }
         mock_analyze.return_value = ("advice bullets", ["get_savings_progress"], None)
+        MockAiMsg.get_cached.return_value = None
+        MockAiMsg.save_pair.return_value = ({"id": "u1"}, {"id": "saved_msg_id"})
 
         with app.test_request_context("/api/ai/trip123/analyze", method="POST"):
             from flask import request as flask_request
@@ -176,14 +178,15 @@ class TestAiRoutes:
         assert data["advice"] == "advice bullets"
         assert data["tools_used"] == ["get_savings_progress"]
         assert "message_id" in data
-        assert len(data["message_id"]) == 36  # UUID string length
+        assert data["message_id"] == "saved_msg_id"
 
     @patch("routes.ai.analyze_budget")
+    @patch("routes.ai.AiMessage")
     @patch("routes.ai.BudgetAllocation")
     @patch("routes.ai.Trip")
     @patch("routes.ai.require_auth", lambda f: mock_auth(f))
     def test_analyze_view_returns_503_when_service_errors(
-        self, MockTrip, MockAllocation, mock_analyze, app
+        self, MockTrip, MockAllocation, MockAiMsg, mock_analyze, app
     ):
         MockTrip.get.return_value = {"user_id": "test-user-123"}
         MockAllocation.get.return_value = {
@@ -194,6 +197,7 @@ class TestAiRoutes:
             "transport_budget": 200, "transport_pct": 7,
             "misc_budget": 100, "misc_pct": 3,
         }
+        MockAiMsg.get_cached.return_value = None
         mock_analyze.return_value = (None, [], "Could not reach AI service")
 
         with app.test_request_context("/api/ai/trip123/analyze", method="POST"):
@@ -253,6 +257,93 @@ class TestAiRoutes:
             ctx.request.uid = "test-user-123"
             response, status = inner("trip123")
         assert status == 403
+
+    @patch("routes.ai.analyze_budget")
+    @patch("routes.ai.AiMessage")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    def test_analyze_cache_hit_returns_cached_without_llm_call(
+        self, MockTrip, MockAllocation, MockAiMsg, mock_analyze, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {"hotel_budget": 800}
+        MockAiMsg.get_cached.return_value = {
+            "id": "cached_msg_id",
+            "content": "cached advice",
+            "tools_used": ["get_savings_progress"],
+        }
+        from routes.ai import analyze
+        inner = mock_auth(analyze.__wrapped__)
+        with app.test_request_context(
+            "/api/ai/trip123/analyze", method="POST", json={}
+        ) as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        assert status == 200
+        data = response.get_json()
+        assert data["advice"] == "cached advice"
+        assert data["cached"] is True
+        assert data["tools_used"] == ["get_savings_progress"]
+        MockAiMsg.get_cached.assert_called_once_with("trip123", "analyze")
+        mock_analyze.assert_not_called()
+
+    @patch("routes.ai.analyze_budget")
+    @patch("routes.ai.AiMessage")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    def test_analyze_cache_miss_calls_llm_and_persists(
+        self, MockTrip, MockAllocation, MockAiMsg, mock_analyze, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {"hotel_budget": 800}
+        MockAiMsg.get_cached.return_value = None
+        mock_analyze.return_value = ("fresh advice", ["get_savings_progress"], None)
+        MockAiMsg.save_pair.return_value = ({"id": "u1"}, {"id": "ai1"})
+        from routes.ai import analyze
+        inner = mock_auth(analyze.__wrapped__)
+        with app.test_request_context(
+            "/api/ai/trip123/analyze", method="POST", json={}
+        ) as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        assert status == 200
+        data = response.get_json()
+        assert data["advice"] == "fresh advice"
+        assert data["cached"] is False
+        mock_analyze.assert_called_once()
+        MockAiMsg.save_pair.assert_called_once()
+        ck = MockAiMsg.save_pair.call_args.kwargs
+        assert ck["trip_id"] == "trip123"
+        assert ck["action"] == "analyze"
+        assert ck["ai_content"] == "fresh advice"
+        assert ck["tools_used"] == ["get_savings_progress"]
+        assert ck["category"] is None
+        assert ck["can_save"] is False
+
+    @patch("routes.ai.analyze_budget")
+    @patch("routes.ai.AiMessage")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    def test_analyze_force_true_bypasses_cache(
+        self, MockTrip, MockAllocation, MockAiMsg, mock_analyze, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {"hotel_budget": 800}
+        MockAiMsg.get_cached.return_value = {"id": "cached", "content": "old"}
+        mock_analyze.return_value = ("fresh advice", [], None)
+        MockAiMsg.save_pair.return_value = ({"id": "u1"}, {"id": "ai1"})
+        from routes.ai import analyze
+        inner = mock_auth(analyze.__wrapped__)
+        with app.test_request_context(
+            "/api/ai/trip123/analyze", method="POST", json={"force": True}
+        ) as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        data = response.get_json()
+        assert data["advice"] == "fresh advice"
+        assert data["cached"] is False
+        mock_analyze.assert_called_once()
+        MockAiMsg.save_pair.assert_called_once()
 
 
 class TestRecommendationRoutes:
