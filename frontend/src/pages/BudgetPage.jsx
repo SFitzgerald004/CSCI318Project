@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { getAllocation, createAllocation, getSavings, createSavings } from '../services/budgetService';
 import BudgetChart from '../components/BudgetChart';
@@ -24,7 +24,7 @@ export default function BudgetPage() {
   const [savingPlan, setSavingPlan] = useState(false);
   const showSkeleton = useDelayedLoading(loading);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
     try {
@@ -36,9 +36,9 @@ export default function BudgetPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
 
-  useEffect(() => { loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   async function handleGenerate() {
     setGenerating(true);

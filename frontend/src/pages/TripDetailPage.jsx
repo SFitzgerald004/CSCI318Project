@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTrip } from '../services/tripService';
 import Card from '../components/ui/Card';
@@ -22,7 +22,7 @@ export default function TripDetailPage() {
   const [error, setError] = useState(false);
   const showSkeleton = useDelayedLoading(loading);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
@@ -33,9 +33,9 @@ export default function TripDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   if (error) return <ErrorState title="Could not load trip" retry={load} />;
   if (showSkeleton) return <div><Skeleton variant="title" className="w-48 mb-6" /><Skeleton variant="card" /></div>;

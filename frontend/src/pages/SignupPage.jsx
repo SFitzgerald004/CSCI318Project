@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 

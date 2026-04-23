@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { getRecommendations, deleteRecommendation } from '../services/recommendationService';
 import RecommendationCard from '../components/RecommendationCard';
@@ -27,7 +27,7 @@ export default function RecommendationsPage() {
   const [activeCategory, setActiveCategory] = useState('all');
   const showSkeleton = useDelayedLoading(loading);
 
-  async function loadRecs() {
+  const loadRecs = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
@@ -38,9 +38,9 @@ export default function RecommendationsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
 
-  useEffect(() => { loadRecs(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
+  useEffect(() => { loadRecs(); }, [loadRecs]);
 
   async function handleDelete(recId) {
     try {

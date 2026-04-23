@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContextObject';
 
 function renderSidebar({ tripName = undefined, path = '/trips' } = {}) {
   const mockAuth = { user: { email: 'test@example.com' }, logout: vi.fn() };

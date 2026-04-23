@@ -10,7 +10,7 @@ import {
   XMarkIcon,
   ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import Button from './ui/Button';
 
 export default function Sidebar({ tripName }) {
