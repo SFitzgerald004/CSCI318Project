@@ -45,7 +45,7 @@ export default function SignupPage() {
 
         <form onSubmit={handleSubmit} className="bg-surface-dark-1 rounded-xl p-7 text-left">
           {error && (
-            <p className="text-red-400 text-sm mb-4 text-center">{error}</p>
+            <p role="alert" className="text-red-400 text-sm mb-4 text-center">{error}</p>
           )}
 
           <Input label="Email" type="email" value={email} onChange={setEmail}

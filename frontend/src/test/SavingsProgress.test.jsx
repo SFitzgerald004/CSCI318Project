@@ -36,7 +36,7 @@ describe('SavingsProgress', () => {
 
   it('renders progress bar', () => {
     const { container } = render(<SavingsProgress savings={mockSavings} totalBudget={3500} />)
-    const progressBar = container.querySelector('.bg-\\[\\#0071e3\\]')
+    const progressBar = container.querySelector('.bg-apple-blue')
     expect(progressBar).toBeInTheDocument()
     expect(progressBar.style.width).toBe('29%')
   })

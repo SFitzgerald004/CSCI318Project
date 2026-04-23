@@ -26,7 +26,7 @@ export default function SavingsProgress({ savings, totalBudget, plan }) {
             { label: 'per week', value: savings.weekly_savings_needed },
           ].map((s) => (
             <div key={s.label} className="text-center bg-surface-light rounded-lg p-3">
-              <p className="type-sub-heading text-text-primary">${s.value}</p>
+              <p className="type-body-emphasis text-text-primary">${s.value}</p>
               <p className="type-caption text-text-secondary mt-0.5">{s.label}</p>
             </div>
           ))}
@@ -38,7 +38,7 @@ export default function SavingsProgress({ savings, totalBudget, plan }) {
           </div>
           <div className="bg-surface-light rounded-full h-2 overflow-hidden">
             <div
-              className="bg-[#0071e3] h-full rounded-full transition-[width] duration-[600ms] ease-out"
+              className="bg-apple-blue h-full rounded-full transition-[width] duration-[600ms] ease-out"
               style={{ width: `${targetPct}%` }}
             />
           </div>

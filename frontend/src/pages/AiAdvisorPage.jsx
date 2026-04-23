@@ -53,12 +53,13 @@ export default function AiAdvisorPage() {
     setMessages((prev) => [...prev, { role: 'user', content: `Get ${focus} recommendations` }]);
     try {
       const { advice, tools_used } = await getAiRecommendations(id, focus);
+      const category = focus === 'hotels' ? 'hotel' : focus === 'food' ? 'restaurant' : focus === 'activities' ? 'attraction' : null;
       setMessages((prev) => [...prev, {
         role: 'ai',
         content: advice,
         tools_used,
-        canSave: true,
-        category: focus === 'hotels' ? 'hotel' : focus === 'food' ? 'restaurant' : focus === 'activities' ? 'attraction' : null,
+        canSave: category !== null,
+        category,
       }]);
     } catch {
       toast.error('AI service unavailable');
@@ -113,7 +114,7 @@ export default function AiAdvisorPage() {
       <h1 className="type-section-heading">AI Advisor</h1>
       <p className="type-caption text-text-secondary mt-1">Get AI-powered budget analysis and recommendations</p>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-6">
         <AiInsightCard icon={ChartBarIcon} title="Analyze Budget" description="Get AI feedback on your allocation"
           onClick={handleAnalyze} loading={activeAction === 'analyze'} />
         <AiInsightCard icon={GlobeAltIcon} title="Overall" description="Get overall recommendations"
