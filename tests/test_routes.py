@@ -104,6 +104,73 @@ class TestAiRoutes:
         response = client.post('/api/ai/trip123/recommend', json={'focus': 'hotels'})
         assert response.status_code == 401
 
+    @patch("routes.ai.get_recommendations")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    @patch("routes.ai.require_auth", lambda f: mock_auth(f))
+    def test_recommend_view_returns_enriched_shape(
+        self, MockTrip, MockAllocation, mock_get_recs, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {
+            "hotel_budget": 800, "hotel_pct": 27,
+            "food_budget": 600, "food_pct": 20,
+            "activities_budget": 400, "activities_pct": 13,
+            "flights_budget": 900, "flights_pct": 30,
+            "transport_budget": 200, "transport_pct": 7,
+            "misc_budget": 100, "misc_pct": 3,
+        }
+        mock_get_recs.return_value = ("3 hotels listed", ["get_saved_recommendations"], None)
+
+        with app.test_request_context(
+            "/api/ai/trip123/recommend",
+            method="POST",
+            json={"focus": "hotels"},
+        ):
+            from flask import request as flask_request
+            flask_request.uid = "test-user-123"
+            from routes.ai import recommend as _recommend
+            inner = mock_auth(_recommend.__wrapped__ if hasattr(_recommend, '__wrapped__') else _recommend)
+            response, status = inner("trip123")
+
+        data = response.get_json()
+        assert status == 200
+        assert data["advice"] == "3 hotels listed"
+        assert data["tools_used"] == ["get_saved_recommendations"]
+        assert "message_id" in data
+        assert len(data["message_id"]) == 36  # UUID string length
+
+    @patch("routes.ai.analyze_budget")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    @patch("routes.ai.require_auth", lambda f: mock_auth(f))
+    def test_analyze_view_returns_enriched_shape(
+        self, MockTrip, MockAllocation, mock_analyze, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {
+            "hotel_budget": 800, "hotel_pct": 27,
+            "food_budget": 600, "food_pct": 20,
+            "activities_budget": 400, "activities_pct": 13,
+            "flights_budget": 900, "flights_pct": 30,
+            "transport_budget": 200, "transport_pct": 7,
+            "misc_budget": 100, "misc_pct": 3,
+        }
+        mock_analyze.return_value = ("advice bullets", ["get_savings_progress"], None)
+
+        with app.test_request_context("/api/ai/trip123/analyze", method="POST"):
+            from flask import request as flask_request
+            flask_request.uid = "test-user-123"
+            from routes.ai import analyze as _analyze
+            inner = mock_auth(_analyze.__wrapped__ if hasattr(_analyze, '__wrapped__') else _analyze)
+            response, status = inner("trip123")
+
+        data = response.get_json()
+        assert status == 200
+        assert data["advice"] == "advice bullets"
+        assert data["tools_used"] == ["get_savings_progress"]
+        assert "message_id" in data
+
 
 class TestRecommendationRoutes:
     """Test recommendation API endpoints."""
