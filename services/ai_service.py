@@ -117,8 +117,18 @@ def _run_with_tools(
         if not message.tool_calls:
             return (message.content, tools_used, None)
 
-        # Tool-call branch will be extended in Task 10.
-        break
+        messages.append(message)
+
+        for tool_call in message.tool_calls:
+            name = tool_call.function.name
+            args = _json.loads(tool_call.function.arguments)
+            result = TOOL_REGISTRY[name](**args)
+            tools_used.append(name)
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": result,
+            })
 
     return (None, tools_used, f"AI exceeded {max_iterations} tool-call iterations")
 

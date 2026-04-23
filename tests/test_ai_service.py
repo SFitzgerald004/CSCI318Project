@@ -167,3 +167,60 @@ class TestRunWithToolsNoToolCalls:
         assert tools_used == []
         assert error is None
         mock_client.chat.completions.create.assert_called_once()
+
+
+def _fake_tool_call(call_id, name, arguments_json):
+    return SimpleNamespace(
+        id=call_id,
+        function=SimpleNamespace(name=name, arguments=arguments_json),
+    )
+
+
+class TestRunWithToolsSingleCall:
+    @patch("services.ai_service.TOOL_REGISTRY")
+    @patch("services.ai_service.client")
+    def test_dispatches_tool_then_returns_final_content(self, mock_client, mock_registry):
+        mock_registry.__contains__.return_value = True
+        mock_registry.__getitem__.return_value = lambda **kw: '{"daily_amount": 100}'
+
+        mock_client.chat.completions.create.side_effect = [
+            _fake_response(_fake_message(tool_calls=[
+                _fake_tool_call("call_1", "calculate_daily_spend", '{"total_amount": 700, "num_days": 7}')
+            ])),
+            _fake_response(_fake_message(content="Your daily spend is $100.")),
+        ]
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[{"type": "function", "function": {"name": "calculate_daily_spend"}}],
+        )
+        assert content == "Your daily spend is $100."
+        assert tools_used == ["calculate_daily_spend"]
+        assert error is None
+        assert mock_client.chat.completions.create.call_count == 2
+
+
+class TestRunWithToolsParallelCalls:
+    @patch("services.ai_service.TOOL_REGISTRY")
+    @patch("services.ai_service.client")
+    def test_multiple_tools_one_iteration_all_dispatched(self, mock_client, mock_registry):
+        mock_registry.__contains__.return_value = True
+        mock_registry.__getitem__.return_value = lambda **kw: '{"ok": true}'
+
+        mock_client.chat.completions.create.side_effect = [
+            _fake_response(_fake_message(tool_calls=[
+                _fake_tool_call("a", "get_saved_recommendations", '{"trip_id": "t1"}'),
+                _fake_tool_call("b", "get_savings_progress", '{"trip_id": "t1"}'),
+            ])),
+            _fake_response(_fake_message(content="Done.")),
+        ]
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[{}],
+        )
+        assert tools_used == ["get_saved_recommendations", "get_savings_progress"]
+        assert content == "Done."
+        assert mock_client.chat.completions.create.call_count == 2
