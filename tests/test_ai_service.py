@@ -1,5 +1,5 @@
 from datetime import date
-from services.ai_service import _humanize_prefs, _build_system_prompt, _build_analyze_prompt
+from services.ai_service import _humanize_prefs, _build_system_prompt, _build_analyze_prompt, _build_recommend_prompt
 
 
 class TestHumanizePrefs:
@@ -73,3 +73,51 @@ class TestBuildAnalyzePrompt:
     def test_treats_preferences_as_constraints(self):
         prompt = _build_analyze_prompt(self._trip(), self._allocation())
         assert "firm constraints" in prompt
+
+
+class TestBuildRecommendPrompt:
+    def _trip(self):
+        return {
+            "destination": "Tokyo, Japan",
+            "trip_purpose": "vacation",
+            "num_travelers": 1,
+            "total_budget": 2500,
+            "departure_date": date(2026, 9, 1),
+            "return_date": date(2026, 9, 8),
+            "food_prefs": ["street_food"],
+            "activity_prefs": ["museums", "nightlife"],
+            "hotel_prefs": "budget",
+        }
+
+    def _allocation(self):
+        return {
+            "flights_budget": 900, "flights_pct": 36,
+            "hotel_budget": 700, "hotel_pct": 28,
+            "food_budget": 400, "food_pct": 16,
+            "activities_budget": 300, "activities_pct": 12,
+            "transport_budget": 150, "transport_pct": 6,
+            "misc_budget": 50, "misc_pct": 2,
+        }
+
+    def test_hotels_focus_uses_hotel_budget(self):
+        prompt = _build_recommend_prompt(self._trip(), self._allocation(), focus="hotels")
+        assert "$700" in prompt
+        assert "hotels" in prompt
+
+    def test_food_focus_uses_food_budget(self):
+        prompt = _build_recommend_prompt(self._trip(), self._allocation(), focus="food")
+        assert "$400" in prompt
+        assert "food" in prompt
+
+    def test_activities_focus_uses_activities_budget(self):
+        prompt = _build_recommend_prompt(self._trip(), self._allocation(), focus="activities")
+        assert "$300" in prompt
+
+    def test_prompt_nudges_saved_recommendations_tool(self):
+        prompt = _build_recommend_prompt(self._trip(), self._allocation(), focus="hotels")
+        assert "get_saved_recommendations" in prompt
+
+    def test_preferences_are_humanized(self):
+        prompt = _build_recommend_prompt(self._trip(), self._allocation(), focus="food")
+        assert "street_food" in prompt
+        assert "museums, nightlife" in prompt

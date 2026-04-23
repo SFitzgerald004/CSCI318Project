@@ -59,6 +59,41 @@ Does this allocation make sense for this destination and trip style?
 What should they watch out for? 3-5 bullet points.
 You may use tools if they help (e.g., checking savings progress or already-saved items)."""
 
+
+def _build_recommend_prompt(trip: dict, allocation: dict, focus: str) -> str:
+    focus_to_budget_key = {
+        "hotels": ("hotel_budget", "hotel_pct"),
+        "food": ("food_budget", "food_pct"),
+        "activities": ("activities_budget", "activities_pct"),
+        "overall": ("hotel_budget", "hotel_pct"),
+    }
+    budget_key, pct_key = focus_to_budget_key.get(focus, focus_to_budget_key["overall"])
+    category_budget = allocation[budget_key]
+    category_pct = allocation[pct_key]
+
+    departure = trip["departure_date"]
+    return_date = trip["return_date"]
+    if hasattr(departure, "date"):
+        departure = departure.date()
+    if hasattr(return_date, "date"):
+        return_date = return_date.date()
+    num_nights = (return_date - departure).days
+
+    per_day = round(category_budget / num_nights, 2) if num_nights > 0 else category_budget
+
+    return f"""Trip: {trip['destination']}, {num_nights} nights, {trip['trip_purpose']}, {trip['num_travelers']} traveler(s).
+
+Budget for {focus}: ${category_budget} total (${per_day}/day, {category_pct}% of trip budget).
+
+User preferences (treat as firm constraints):
+- Hotel style: {trip.get('hotel_prefs', 'mid_range')}
+- Food style: {_humanize_prefs(trip.get('food_prefs'))}
+- Activities: {_humanize_prefs(trip.get('activity_prefs'))}
+
+Suggest 3 specific {focus} options in {trip['destination']} that fit this budget and these preferences.
+Before suggesting, check get_saved_recommendations so you don't repeat what's already saved.
+For each option: name, brief description, price range, and why it matches their preferences."""
+
 def analyze_budget(trip, allocation):
     departure = trip['departure_date']
     return_date = trip['return_date']
