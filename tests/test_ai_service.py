@@ -287,7 +287,10 @@ class TestRunWithToolsLimits:
         )
         assert content is None
         assert "3 tool-call iterations" in error
-        assert len(tools_used) == 3
+        # The contract is that the API was called exactly max_iterations times,
+        # regardless of how many tool calls each response carried.
+        assert mock_client.chat.completions.create.call_count == 3
+        assert len(tools_used) > 0  # sanity: the loop did attempt dispatch
 
     @patch("services.ai_service.client")
     def test_api_connection_error_returns_error_tuple(self, mock_client):
@@ -306,6 +309,8 @@ class TestRunWithToolsLimits:
     def test_rate_limit_returns_error_tuple(self, mock_client):
         fake_response = MagicMock()
         fake_response.status_code = 429
+        # MagicMock (not SimpleNamespace) because openai.RateLimitError's __init__
+        # reads response.headers and response.request during error construction.
         mock_client.chat.completions.create.side_effect = openai.RateLimitError(
             message="rate limit", response=fake_response, body=None
         )
