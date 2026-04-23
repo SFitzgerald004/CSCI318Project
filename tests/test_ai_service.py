@@ -1,4 +1,5 @@
-from services.ai_service import _humanize_prefs, _build_system_prompt
+from datetime import date
+from services.ai_service import _humanize_prefs, _build_system_prompt, _build_analyze_prompt
 
 
 class TestHumanizePrefs:
@@ -29,3 +30,46 @@ class TestBuildSystemPrompt:
     def test_discourages_unnecessary_tool_calls(self):
         prompt = _build_system_prompt()
         assert "do NOT call tools just to show" in prompt
+
+
+class TestBuildAnalyzePrompt:
+    def _trip(self):
+        return {
+            "destination": "Paris, France",
+            "trip_purpose": "vacation",
+            "num_travelers": 2,
+            "total_budget": 3000,
+            "departure_date": date(2026, 7, 1),
+            "return_date": date(2026, 7, 8),
+            "food_prefs": ["fine_dining", "street_food"],
+            "activity_prefs": ["museums"],
+            "hotel_prefs": "mid_range",
+        }
+
+    def _allocation(self):
+        return {
+            "flights_budget": 900, "flights_pct": 30,
+            "hotel_budget": 800, "hotel_pct": 27,
+            "food_budget": 600, "food_pct": 20,
+            "activities_budget": 400, "activities_pct": 13,
+            "transport_budget": 200, "transport_pct": 7,
+            "misc_budget": 100, "misc_pct": 3,
+        }
+
+    def test_contains_destination_and_budget(self):
+        prompt = _build_analyze_prompt(self._trip(), self._allocation())
+        assert "Paris, France" in prompt
+        assert "$3000" in prompt
+
+    def test_preferences_are_human_readable_not_python_list(self):
+        prompt = _build_analyze_prompt(self._trip(), self._allocation())
+        assert "fine_dining, street_food" in prompt
+        assert "['fine_dining'" not in prompt
+
+    def test_has_per_day_figure(self):
+        prompt = _build_analyze_prompt(self._trip(), self._allocation())
+        assert "/day" in prompt
+
+    def test_treats_preferences_as_constraints(self):
+        prompt = _build_analyze_prompt(self._trip(), self._allocation())
+        assert "firm constraints" in prompt

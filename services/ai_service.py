@@ -27,6 +27,38 @@ Do NOT duplicate recommendations the user has already saved.
 Be specific (name real places, give price ranges), concise (3-5 bullets unless asked otherwise),
 and practical. Ground advice in the user's stated preferences — do not override them."""
 
+
+def _build_analyze_prompt(trip: dict, allocation: dict) -> str:
+    departure = trip["departure_date"]
+    return_date = trip["return_date"]
+    if hasattr(departure, "date"):
+        departure = departure.date()
+    if hasattr(return_date, "date"):
+        return_date = return_date.date()
+    num_nights = (return_date - departure).days
+
+    per_day = round(trip["total_budget"] / num_nights, 2) if num_nights > 0 else trip["total_budget"]
+
+    return f"""Trip: {trip['num_travelers']} traveler(s) going to {trip['destination']} for {num_nights} nights ({trip['trip_purpose']}).
+Total budget: ${trip['total_budget']} (~${per_day}/day).
+
+Allocation:
+- Flights: ${allocation['flights_budget']} ({allocation['flights_pct']}%)
+- Hotel: ${allocation['hotel_budget']} ({allocation['hotel_pct']}%)
+- Food: ${allocation['food_budget']} ({allocation['food_pct']}%)
+- Activities: ${allocation['activities_budget']} ({allocation['activities_pct']}%)
+- Transport: ${allocation['transport_budget']} ({allocation['transport_pct']}%)
+- Misc: ${allocation['misc_budget']} ({allocation['misc_pct']}%)
+
+User preferences (treat as firm constraints, not suggestions):
+- Hotel style: {trip.get('hotel_prefs', 'mid_range')}
+- Food style: {_humanize_prefs(trip.get('food_prefs'))}
+- Activities: {_humanize_prefs(trip.get('activity_prefs'))}
+
+Does this allocation make sense for this destination and trip style?
+What should they watch out for? 3-5 bullet points.
+You may use tools if they help (e.g., checking savings progress or already-saved items)."""
+
 def analyze_budget(trip, allocation):
     departure = trip['departure_date']
     return_date = trip['return_date']
