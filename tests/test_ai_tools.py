@@ -122,3 +122,8 @@ class TestToolRegistry:
             assert "description" in schema["function"]
             assert "parameters" in schema["function"]
             assert schema["function"]["parameters"]["type"] == "object"
+
+    def test_schemas_disallow_additional_properties(self):
+        """Guards against LLM hallucinating extra params that crash dispatch."""
+        for schema in TOOL_SCHEMAS:
+            assert schema["function"]["parameters"]["additionalProperties"] is False
