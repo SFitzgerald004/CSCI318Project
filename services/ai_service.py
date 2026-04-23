@@ -6,6 +6,13 @@ import openai
 client = OpenAI(api_key = os.environ.get('OPENAI_API_KEY'))
 MODEL = 'gpt-4o-mini'
 
+
+def _humanize_prefs(prefs: list | None) -> str:
+    """Turn ['fine_dining', 'street_food'] into 'fine_dining, street_food'."""
+    if not prefs:
+        return "no specific preference"
+    return ", ".join(prefs)
+
 def analyze_budget(trip, allocation):
     departure = trip['departure_date']
     return_date = trip['return_date']
