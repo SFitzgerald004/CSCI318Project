@@ -13,6 +13,20 @@ def _humanize_prefs(prefs: list | None) -> str:
         return "no specific preference"
     return ", ".join(prefs)
 
+
+def _build_system_prompt() -> str:
+    return """You are a travel budget advisor helping a user plan a specific trip.
+
+You have tools available:
+- get_saved_recommendations: look up items the user has already saved for this trip
+- get_savings_progress: check how close the user is to their savings goal
+- calculate_daily_spend: convert total amounts into per-day figures when useful
+
+Use tools when they improve your answer. do NOT call tools just to show you can.
+Do NOT duplicate recommendations the user has already saved.
+Be specific (name real places, give price ranges), concise (3-5 bullets unless asked otherwise),
+and practical. Ground advice in the user's stated preferences — do not override them."""
+
 def analyze_budget(trip, allocation):
     departure = trip['departure_date']
     return_date = trip['return_date']
