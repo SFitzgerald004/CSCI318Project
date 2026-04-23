@@ -1,6 +1,7 @@
 """AI tool schemas and implementations. Registered in TOOL_REGISTRY."""
 import json
 from models.recommendation import Recommendation
+from models.savings_plan import SavingsPlan
 
 
 def _calculate_daily_spend(total_amount: float, num_days: int) -> str:
@@ -30,3 +31,26 @@ def _get_saved_recommendations(trip_id: str, category: str | None = None) -> str
         return json.dumps(simplified)
     except Exception as e:
         return json.dumps({"error": f"could not fetch saved recommendations: {e}"})
+
+
+def _get_savings_progress(trip_id: str) -> str:
+    """Return the user's savings progress for this trip as a JSON string."""
+    try:
+        plan = SavingsPlan.get(trip_id)
+        if plan is None:
+            return json.dumps({"error": "no savings plan found for this trip"})
+
+        total = plan.get("total_budget", 0)
+        saved = plan.get("amount_saved", 0)
+        weeks_left = plan.get("weeks_until_trip", 0)
+        pct = round((saved / total) * 100) if total > 0 else 0
+
+        return json.dumps({
+            "saved": saved,
+            "goal": total,
+            "pct_complete": pct,
+            "weekly_target": plan.get("weekly_savings_needed", 0),
+            "on_track": saved > 0 and weeks_left > 0,
+        })
+    except Exception as e:
+        return json.dumps({"error": f"could not fetch savings progress: {e}"})

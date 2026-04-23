@@ -1,6 +1,6 @@
 import json
 from unittest.mock import patch
-from services.ai_tools import _calculate_daily_spend, _get_saved_recommendations
+from services.ai_tools import _calculate_daily_spend, _get_saved_recommendations, _get_savings_progress
 
 
 class TestCalculateDailySpend:
@@ -55,5 +55,51 @@ class TestGetSavedRecommendations:
     def test_model_exception_returns_error_json_not_raises(self, MockRec):
         MockRec.get_by_trip.side_effect = RuntimeError("firestore down")
         result = _get_saved_recommendations(trip_id="trip123")
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+
+class TestGetSavingsProgress:
+    @patch("services.ai_tools.SavingsPlan")
+    def test_returns_savings_data_with_on_track_true(self, MockPlan):
+        MockPlan.get.return_value = {
+            "total_budget": 3000,
+            "amount_saved": 1200,
+            "weekly_savings_needed": 150,
+            "weeks_until_trip": 12,
+            "amount_remaining": 1800,
+        }
+        result = _get_savings_progress(trip_id="trip123")
+        parsed = json.loads(result)
+        assert parsed["saved"] == 1200
+        assert parsed["goal"] == 3000
+        assert parsed["pct_complete"] == 40
+        assert parsed["weekly_target"] == 150
+        assert parsed["on_track"] is True
+
+    @patch("services.ai_tools.SavingsPlan")
+    def test_on_track_false_when_nothing_saved(self, MockPlan):
+        MockPlan.get.return_value = {
+            "total_budget": 3000,
+            "amount_saved": 0,
+            "weekly_savings_needed": 150,
+            "weeks_until_trip": 20,
+            "amount_remaining": 3000,
+        }
+        result = _get_savings_progress(trip_id="trip123")
+        parsed = json.loads(result)
+        assert parsed["on_track"] is False
+
+    @patch("services.ai_tools.SavingsPlan")
+    def test_no_plan_returns_error(self, MockPlan):
+        MockPlan.get.return_value = None
+        result = _get_savings_progress(trip_id="trip123")
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+    @patch("services.ai_tools.SavingsPlan")
+    def test_model_exception_returns_error(self, MockPlan):
+        MockPlan.get.side_effect = RuntimeError("firestore down")
+        result = _get_savings_progress(trip_id="trip123")
         parsed = json.loads(result)
         assert "error" in parsed
