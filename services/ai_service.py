@@ -121,8 +121,16 @@ def _run_with_tools(
 
         for tool_call in message.tool_calls:
             name = tool_call.function.name
-            args = _json.loads(tool_call.function.arguments)
-            result = TOOL_REGISTRY[name](**args)
+            try:
+                args = _json.loads(tool_call.function.arguments)
+            except _json.JSONDecodeError:
+                result = _json.dumps({"error": "invalid arguments"})
+            else:
+                if name not in TOOL_REGISTRY:
+                    result = _json.dumps({"error": f"unknown tool: {name}"})
+                else:
+                    result = TOOL_REGISTRY[name](**args)
+
             tools_used.append(name)
             messages.append({
                 "role": "tool",

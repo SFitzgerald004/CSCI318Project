@@ -224,3 +224,41 @@ class TestRunWithToolsParallelCalls:
         assert tools_used == ["get_saved_recommendations", "get_savings_progress"]
         assert content == "Done."
         assert mock_client.chat.completions.create.call_count == 2
+
+
+class TestRunWithToolsErrorRecovery:
+    @patch("services.ai_service.client")
+    def test_unknown_tool_appends_error_and_continues(self, mock_client):
+        mock_client.chat.completions.create.side_effect = [
+            _fake_response(_fake_message(tool_calls=[
+                _fake_tool_call("x", "nonexistent_tool", "{}")
+            ])),
+            _fake_response(_fake_message(content="Recovered.")),
+        ]
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[{}],
+        )
+        assert content == "Recovered."
+        assert tools_used == ["nonexistent_tool"]
+        assert error is None
+
+    @patch("services.ai_service.client")
+    def test_bad_json_arguments_appends_error_and_continues(self, mock_client):
+        mock_client.chat.completions.create.side_effect = [
+            _fake_response(_fake_message(tool_calls=[
+                _fake_tool_call("x", "calculate_daily_spend", "{not valid json")
+            ])),
+            _fake_response(_fake_message(content="Recovered.")),
+        ]
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[{}],
+        )
+        assert content == "Recovered."
+        assert tools_used == ["calculate_daily_spend"]
+        assert error is None
