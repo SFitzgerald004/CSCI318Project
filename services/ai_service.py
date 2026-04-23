@@ -105,13 +105,21 @@ def _run_with_tools(
     tools_used: list[str] = []
 
     for _ in range(max_iterations):
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            tools=tools if tools else None,
-            tool_choice="auto" if tools else None,
-            max_tokens=800,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                tools=tools if tools else None,
+                tool_choice="auto" if tools else None,
+                max_tokens=800,
+            )
+        except openai.APIConnectionError:
+            return (None, tools_used, "Could not reach AI service")
+        except openai.RateLimitError:
+            return (None, tools_used, "AI service rate limit hit, try again shortly")
+        except openai.APIStatusError as e:
+            return (None, tools_used, f"AI error: {e.status_code}")
+
         message = response.choices[0].message
 
         if not message.tool_calls:

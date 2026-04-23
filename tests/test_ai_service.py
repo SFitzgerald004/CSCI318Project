@@ -262,3 +262,58 @@ class TestRunWithToolsErrorRecovery:
         assert content == "Recovered."
         assert tools_used == ["calculate_daily_spend"]
         assert error is None
+
+
+import openai
+from unittest.mock import MagicMock
+
+
+class TestRunWithToolsLimits:
+    @patch("services.ai_service.TOOL_REGISTRY")
+    @patch("services.ai_service.client")
+    def test_max_iterations_exceeded_returns_error(self, mock_client, mock_registry):
+        mock_registry.__contains__.return_value = True
+        mock_registry.__getitem__.return_value = lambda **kw: '{"ok": true}'
+
+        mock_client.chat.completions.create.return_value = _fake_response(
+            _fake_message(tool_calls=[_fake_tool_call("x", "calculate_daily_spend", "{}")])
+        )
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[{}],
+            max_iterations=3,
+        )
+        assert content is None
+        assert "3 tool-call iterations" in error
+        assert len(tools_used) == 3
+
+    @patch("services.ai_service.client")
+    def test_api_connection_error_returns_error_tuple(self, mock_client):
+        mock_client.chat.completions.create.side_effect = openai.APIConnectionError(request=MagicMock())
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[],
+        )
+        assert content is None
+        assert tools_used == []
+        assert "Could not reach AI service" in error
+
+    @patch("services.ai_service.client")
+    def test_rate_limit_returns_error_tuple(self, mock_client):
+        fake_response = MagicMock()
+        fake_response.status_code = 429
+        mock_client.chat.completions.create.side_effect = openai.RateLimitError(
+            message="rate limit", response=fake_response, body=None
+        )
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[],
+        )
+        assert content is None
+        assert "rate limit" in error.lower()
