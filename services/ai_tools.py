@@ -54,3 +54,71 @@ def _get_savings_progress(trip_id: str) -> str:
         })
     except Exception as e:
         return json.dumps({"error": f"could not fetch savings progress: {e}"})
+
+
+TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_saved_recommendations",
+            "description": (
+                "Fetch the user's saved recommendations for this trip. "
+                "Call this before suggesting new hotels/restaurants/attractions "
+                "so you don't duplicate what they already have. Also useful when "
+                "analyzing budget — saved items represent committed spend."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "trip_id": {"type": "string", "description": "The trip ID to look up"},
+                    "category": {
+                        "type": "string",
+                        "enum": ["hotel", "restaurant", "attraction", "flight", "car_rental"],
+                        "description": "Optional filter. Omit to get all categories.",
+                    },
+                },
+                "required": ["trip_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_savings_progress",
+            "description": (
+                "Get the user's savings progress toward this trip's total budget. "
+                "Returns amount saved, goal, percent complete, weekly target, and on_track boolean."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"trip_id": {"type": "string"}},
+                "required": ["trip_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate_daily_spend",
+            "description": (
+                "Given a budget amount and number of days, return the daily average. "
+                "Useful for framing budgets in per-day terms "
+                "(e.g., 'your food budget works out to $45/day')."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "total_amount": {"type": "number", "description": "Dollar amount"},
+                    "num_days": {"type": "integer", "description": "Number of days"},
+                },
+                "required": ["total_amount", "num_days"],
+            },
+        },
+    },
+]
+
+TOOL_REGISTRY = {
+    "get_saved_recommendations": _get_saved_recommendations,
+    "get_savings_progress": _get_savings_progress,
+    "calculate_daily_spend": _calculate_daily_spend,
+}

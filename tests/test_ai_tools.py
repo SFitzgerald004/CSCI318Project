@@ -1,6 +1,6 @@
 import json
 from unittest.mock import patch
-from services.ai_tools import _calculate_daily_spend, _get_saved_recommendations, _get_savings_progress
+from services.ai_tools import _calculate_daily_spend, _get_saved_recommendations, _get_savings_progress, TOOL_SCHEMAS, TOOL_REGISTRY
 
 
 class TestCalculateDailySpend:
@@ -103,3 +103,22 @@ class TestGetSavingsProgress:
         result = _get_savings_progress(trip_id="trip123")
         parsed = json.loads(result)
         assert "error" in parsed
+
+
+class TestToolRegistry:
+    def test_registry_has_all_three_tools(self):
+        assert "get_saved_recommendations" in TOOL_REGISTRY
+        assert "get_savings_progress" in TOOL_REGISTRY
+        assert "calculate_daily_spend" in TOOL_REGISTRY
+
+    def test_schemas_match_registry_keys(self):
+        schema_names = {s["function"]["name"] for s in TOOL_SCHEMAS}
+        assert schema_names == set(TOOL_REGISTRY.keys())
+
+    def test_every_schema_has_required_fields(self):
+        for schema in TOOL_SCHEMAS:
+            assert schema["type"] == "function"
+            assert "name" in schema["function"]
+            assert "description" in schema["function"]
+            assert "parameters" in schema["function"]
+            assert schema["function"]["parameters"]["type"] == "object"
