@@ -109,3 +109,12 @@ class TestGetByTrip:
         assert result[0]['id'] == 'm1'
         assert result[1]['id'] == 'm2'
         assert isinstance(result[0]['created_at'], str)
+
+    def test_get_by_trip_returns_empty_on_firestore_error(self, mock_db):
+        from models.ai_message import AiMessage
+        query = MagicMock()
+        query.where.return_value = query
+        query.order_by.return_value = query
+        query.stream.side_effect = Exception("composite index required")
+        mock_db.collection.return_value = query
+        assert AiMessage.get_by_trip('trip1') == []

@@ -66,15 +66,24 @@ class AiMessage:
 
     @staticmethod
     def get_by_trip(trip_id):
-        query = (
-            extensions.db.collection(AiMessage.COLLECTION)
-            .where('trip_id', '==', trip_id)
-            .order_by('created_at')
-        )
-        results = []
-        for doc in query.stream():
-            data = doc.to_dict()
-            if isinstance(data.get('created_at'), datetime):
-                data['created_at'] = data['created_at'].isoformat()
-            results.append({'id': doc.id, **data})
-        return results
+        """Return all messages for a trip in chronological order.
+
+        Returns [] on any Firestore error so that a missing composite index or
+        transient outage manifests as an empty chat history rather than a 500
+        on the /messages endpoint.
+        """
+        try:
+            query = (
+                extensions.db.collection(AiMessage.COLLECTION)
+                .where('trip_id', '==', trip_id)
+                .order_by('created_at')
+            )
+            results = []
+            for doc in query.stream():
+                data = doc.to_dict()
+                if isinstance(data.get('created_at'), datetime):
+                    data['created_at'] = data['created_at'].isoformat()
+                results.append({'id': doc.id, **data})
+            return results
+        except Exception:
+            return []
