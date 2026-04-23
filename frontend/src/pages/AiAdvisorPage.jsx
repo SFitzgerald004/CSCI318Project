@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ChartBarIcon,
@@ -9,7 +9,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { getAllocation } from '../services/budgetService';
-import { analyzeBudget, getAiRecommendations } from '../services/aiService';
+import { analyzeBudget, getAiRecommendations, getAiMessages } from '../services/aiService';
 import { createRecommendation } from '../services/recommendationService';
 import AiInsightCard from '../components/AiInsightCard';
 import AiChatPanel from '../components/AiChatPanel';
@@ -28,42 +28,85 @@ export default function AiAdvisorPage() {
   const showSkeleton = useDelayedLoading(loading);
 
   useEffect(() => {
-    getAllocation(id)
-      .then(() => setHasBudget(true))
-      .catch(() => setHasBudget(false))
-      .finally(() => setLoading(false));
+    Promise.all([
+      getAllocation(id).then(() => true).catch(() => false),
+      getAiMessages(id).catch(() => []),
+    ]).then(([budgetExists, history]) => {
+      setHasBudget(budgetExists);
+      const normalized = history.map((m) => ({ ...m, canSave: m.can_save }));
+      setMessages(normalized);
+    }).finally(() => setLoading(false));
   }, [id]);
 
-  async function handleAnalyze() {
+  const askedActions = useMemo(
+    () => new Set(messages.filter((m) => m.role === 'ai').map((m) => m.action).filter(Boolean)),
+    [messages],
+  );
+
+  async function handleAnalyze(force = false) {
     setActiveAction('analyze');
-    setMessages((prev) => [...prev, { role: 'user', content: 'Analyze my budget allocation' }]);
+    setMessages((prev) => [...prev, {
+      role: 'user',
+      content: 'Analyze my budget allocation',
+      action: 'analyze',
+      created_at: new Date().toISOString(),
+    }]);
     try {
-      const { advice, tools_used } = await analyzeBudget(id);
-      setMessages((prev) => [...prev, { role: 'ai', content: advice, tools_used }]);
+      const { advice, tools_used, cached, message_id } = await analyzeBudget(id, { force });
+      setMessages((prev) => [...prev, {
+        id: message_id,
+        role: 'ai',
+        content: advice,
+        action: 'analyze',
+        tools_used,
+        cached,
+        created_at: new Date().toISOString(),
+      }]);
     } catch {
       toast.error('AI service unavailable');
-      setMessages((prev) => [...prev, { role: 'ai', content: "Sorry, I couldn't analyze your budget right now. Please try again." }]);
+      setMessages((prev) => [...prev, {
+        role: 'ai',
+        content: "Sorry, I couldn't analyze your budget right now. Please try again.",
+        created_at: new Date().toISOString(),
+      }]);
     } finally {
       setActiveAction(null);
     }
   }
 
-  async function handleRecommend(focus) {
+  async function handleRecommend(focus, force = false) {
     setActiveAction(focus);
-    setMessages((prev) => [...prev, { role: 'user', content: `Get ${focus} recommendations` }]);
+    const category = focus === 'hotels' ? 'hotel'
+      : focus === 'food' ? 'restaurant'
+      : focus === 'activities' ? 'attraction'
+      : null;
+
+    setMessages((prev) => [...prev, {
+      role: 'user',
+      content: `Get ${focus} recommendations`,
+      action: `recommend:${focus}`,
+      created_at: new Date().toISOString(),
+    }]);
     try {
-      const { advice, tools_used } = await getAiRecommendations(id, focus);
-      const category = focus === 'hotels' ? 'hotel' : focus === 'food' ? 'restaurant' : focus === 'activities' ? 'attraction' : null;
+      const { advice, tools_used, cached, message_id } = await getAiRecommendations(id, focus, { force });
       setMessages((prev) => [...prev, {
+        id: message_id,
         role: 'ai',
         content: advice,
+        action: `recommend:${focus}`,
         tools_used,
+        cached,
         canSave: category !== null,
         category,
+        created_at: new Date().toISOString(),
       }]);
     } catch {
       toast.error('AI service unavailable');
-      setMessages((prev) => [...prev, { role: 'ai', content: "Sorry, I couldn't get recommendations right now. Please try again." }]);
+      setMessages((prev) => [...prev, {
+        role: 'ai',
+        content: "Sorry, I couldn't get recommendations right now. Please try again.",
+        created_at: new Date().toISOString(),
+      }]);
     } finally {
       setActiveAction(null);
     }
@@ -120,16 +163,31 @@ export default function AiAdvisorPage() {
       <p className="type-caption text-text-secondary mt-1">Get AI-powered budget analysis and recommendations</p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-6">
-        <AiInsightCard icon={ChartBarIcon} title="Analyze Budget" description="Get AI feedback on your allocation"
-          onClick={handleAnalyze} loading={activeAction === 'analyze'} />
-        <AiInsightCard icon={GlobeAltIcon} title="Overall" description="Get overall recommendations"
-          onClick={() => handleRecommend('overall')} loading={activeAction === 'overall'} />
-        <AiInsightCard icon={BuildingOffice2Icon} title="Hotels" description="Get hotel picks"
-          onClick={() => handleRecommend('hotels')} loading={activeAction === 'hotels'} />
-        <AiInsightCard icon={CakeIcon} title="Food" description="Get food picks"
-          onClick={() => handleRecommend('food')} loading={activeAction === 'food'} />
-        <AiInsightCard icon={MapPinIcon} title="Activities" description="Get activity picks"
-          onClick={() => handleRecommend('activities')} loading={activeAction === 'activities'} />
+        <AiInsightCard
+          icon={ChartBarIcon} title="Analyze Budget" description="Get AI feedback on your allocation"
+          onClick={() => handleAnalyze(false)} loading={activeAction === 'analyze'}
+          alreadyAsked={askedActions.has('analyze')} onRefresh={() => handleAnalyze(true)}
+        />
+        <AiInsightCard
+          icon={GlobeAltIcon} title="Overall" description="Get overall recommendations"
+          onClick={() => handleRecommend('overall', false)} loading={activeAction === 'overall'}
+          alreadyAsked={askedActions.has('recommend:overall')} onRefresh={() => handleRecommend('overall', true)}
+        />
+        <AiInsightCard
+          icon={BuildingOffice2Icon} title="Hotels" description="Get hotel picks"
+          onClick={() => handleRecommend('hotels', false)} loading={activeAction === 'hotels'}
+          alreadyAsked={askedActions.has('recommend:hotels')} onRefresh={() => handleRecommend('hotels', true)}
+        />
+        <AiInsightCard
+          icon={CakeIcon} title="Food" description="Get food picks"
+          onClick={() => handleRecommend('food', false)} loading={activeAction === 'food'}
+          alreadyAsked={askedActions.has('recommend:food')} onRefresh={() => handleRecommend('food', true)}
+        />
+        <AiInsightCard
+          icon={MapPinIcon} title="Activities" description="Get activity picks"
+          onClick={() => handleRecommend('activities', false)} loading={activeAction === 'activities'}
+          alreadyAsked={askedActions.has('recommend:activities')} onRefresh={() => handleRecommend('activities', true)}
+        />
       </div>
 
       <div className="mt-6">
