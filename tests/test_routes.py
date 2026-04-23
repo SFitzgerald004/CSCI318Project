@@ -105,11 +105,12 @@ class TestAiRoutes:
         assert response.status_code == 401
 
     @patch("routes.ai.get_recommendations")
+    @patch("routes.ai.AiMessage")
     @patch("routes.ai.BudgetAllocation")
     @patch("routes.ai.Trip")
     @patch("routes.ai.require_auth", lambda f: mock_auth(f))
     def test_recommend_view_returns_enriched_shape(
-        self, MockTrip, MockAllocation, mock_get_recs, app
+        self, MockTrip, MockAllocation, MockAiMsg, mock_get_recs, app
     ):
         MockTrip.get.return_value = {"user_id": "test-user-123"}
         MockAllocation.get.return_value = {
@@ -121,6 +122,8 @@ class TestAiRoutes:
             "misc_budget": 100, "misc_pct": 3,
         }
         mock_get_recs.return_value = ("3 hotels listed", ["get_saved_recommendations"], None)
+        MockAiMsg.get_cached.return_value = None
+        MockAiMsg.save_pair.return_value = ({"id": "u1"}, {"id": "saved_rec_id"})
 
         with app.test_request_context(
             "/api/ai/trip123/recommend",
@@ -141,6 +144,7 @@ class TestAiRoutes:
         assert data["advice"] == "3 hotels listed"
         assert data["tools_used"] == ["get_saved_recommendations"]
         assert "message_id" in data
+        assert data["message_id"] == "saved_rec_id"
 
     @patch("routes.ai.analyze_budget")
     @patch("routes.ai.AiMessage")
@@ -317,6 +321,88 @@ class TestAiRoutes:
         assert ck["action"] == "analyze"
         assert ck["ai_content"] == "fresh advice"
         assert ck["tools_used"] == ["get_savings_progress"]
+        assert ck["category"] is None
+        assert ck["can_save"] is False
+
+    @patch("routes.ai.get_recommendations")
+    @patch("routes.ai.AiMessage")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    def test_recommend_cache_hit_for_hotels(
+        self, MockTrip, MockAllocation, MockAiMsg, mock_get_recs, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {"hotel_budget": 800}
+        MockAiMsg.get_cached.return_value = {
+            "id": "cached_hotel_msg",
+            "content": "cached hotel picks",
+            "tools_used": ["get_saved_recommendations"],
+        }
+        from routes.ai import recommend
+        inner = mock_auth(recommend.__wrapped__)
+        with app.test_request_context(
+            "/api/ai/trip123/recommend", method="POST",
+            json={"focus": "hotels"},
+        ) as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        assert status == 200
+        data = response.get_json()
+        assert data["advice"] == "cached hotel picks"
+        assert data["cached"] is True
+        MockAiMsg.get_cached.assert_called_once_with("trip123", "recommend:hotels")
+        mock_get_recs.assert_not_called()
+
+    @patch("routes.ai.get_recommendations")
+    @patch("routes.ai.AiMessage")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    def test_recommend_cache_miss_persists_with_category(
+        self, MockTrip, MockAllocation, MockAiMsg, mock_get_recs, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {"hotel_budget": 800}
+        MockAiMsg.get_cached.return_value = None
+        mock_get_recs.return_value = ("new hotel picks", ["get_saved_recommendations"], None)
+        MockAiMsg.save_pair.return_value = ({"id": "u1"}, {"id": "ai1"})
+        from routes.ai import recommend
+        inner = mock_auth(recommend.__wrapped__)
+        with app.test_request_context(
+            "/api/ai/trip123/recommend", method="POST",
+            json={"focus": "hotels"},
+        ) as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        data = response.get_json()
+        assert data["advice"] == "new hotel picks"
+        assert data["cached"] is False
+        MockAiMsg.save_pair.assert_called_once()
+        ck = MockAiMsg.save_pair.call_args.kwargs
+        assert ck["action"] == "recommend:hotels"
+        assert ck["category"] == "hotel"
+        assert ck["can_save"] is True
+
+    @patch("routes.ai.get_recommendations")
+    @patch("routes.ai.AiMessage")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    def test_recommend_overall_category_null_cansave_false(
+        self, MockTrip, MockAllocation, MockAiMsg, mock_get_recs, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {"hotel_budget": 800}
+        MockAiMsg.get_cached.return_value = None
+        mock_get_recs.return_value = ("overall advice", [], None)
+        MockAiMsg.save_pair.return_value = ({"id": "u1"}, {"id": "ai1"})
+        from routes.ai import recommend
+        inner = mock_auth(recommend.__wrapped__)
+        with app.test_request_context(
+            "/api/ai/trip123/recommend", method="POST",
+            json={"focus": "overall"},
+        ) as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        ck = MockAiMsg.save_pair.call_args.kwargs
         assert ck["category"] is None
         assert ck["can_save"] is False
 

@@ -1,5 +1,4 @@
 # ai.py
-import uuid
 from flask import Blueprint, request, jsonify
 from models.trip import Trip
 from models.budget import BudgetAllocation
@@ -8,6 +7,13 @@ from services.ai_service import analyze_budget, get_recommendations
 from routes.auth import require_auth
 
 ai_bp = Blueprint("ai", __name__)
+
+FOCUS_TO_CATEGORY = {
+    "hotels": "hotel",
+    "food": "restaurant",
+    "activities": "attraction",
+    "overall": None,
+}
 
 
 @ai_bp.route("/api/ai/<trip_id>/analyze", methods=["POST"])
@@ -83,17 +89,42 @@ def recommend(trip_id):
     if not allocation:
         return jsonify({"error": "No budget allocation found, POST to /api/budget/<trip_id>/allocate first"}), 400
 
-    focus = request.get_json().get("focus", "overall")
-    if focus not in ["hotels", "food", "activities", "overall"]:
+    body = request.get_json(silent=True) or {}
+    focus = body.get("focus", "overall")
+    if focus not in FOCUS_TO_CATEGORY:
         return jsonify({"error": "focus must be hotels, food, activities, or overall"}), 400
+    force = bool(body.get("force"))
+
+    action = f"recommend:{focus}"
+
+    if not force:
+        cached = AiMessage.get_cached(trip_id, action)
+        if cached:
+            return jsonify({
+                "advice": cached["content"],
+                "message_id": cached["id"],
+                "tools_used": cached.get("tools_used", []),
+                "cached": True,
+            }), 200
 
     advice, tools_used, error = get_recommendations(trip, allocation, focus)
     if error:
         return jsonify({"error": error}), 503
-    # message_id is ephemeral (not persisted) — Phase 3 will migrate this
-    # to a stable ID once feedback buttons need to reference specific messages.
+
+    category = FOCUS_TO_CATEGORY[focus]
+    _, ai_doc = AiMessage.save_pair(
+        trip_id=trip_id,
+        action=action,
+        user_content=f"Get {focus} recommendations",
+        ai_content=advice,
+        tools_used=tools_used,
+        category=category,
+        can_save=category is not None,
+    )
+
     return jsonify({
         "advice": advice,
-        "message_id": str(uuid.uuid4()),
+        "message_id": ai_doc["id"],
         "tools_used": tools_used,
+        "cached": False,
     }), 200
