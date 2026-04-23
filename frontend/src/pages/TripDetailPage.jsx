@@ -1,76 +1,91 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { getTrip } from '../services/tripService'
-import { getAllocation } from '../services/budgetService'
-import LoadingSpinner from '../components/LoadingSpinner'
-import toast from 'react-hot-toast'
+import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { getTrip } from '../services/tripService';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Skeleton from '../components/ui/Skeleton';
+import ErrorState from '../components/ui/ErrorState';
+import { useDelayedLoading } from '../hooks/useDelayedLoading';
+import { CalculatorIcon, SparklesIcon, BookmarkIcon } from '@heroicons/react/24/outline';
+
+const PURPOSE_EMOJI = {
+  vacation: '🌴',
+  business: '💼',
+  family: '👨‍👩‍👧‍👦',
+  adventure: '🏔️',
+};
 
 export default function TripDetailPage() {
-  const { id } = useParams()
-  const [trip, setTrip] = useState(null)
-  const [hasBudget, setHasBudget] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const { id } = useParams();
+  const [trip, setTrip] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const showSkeleton = useDelayedLoading(loading);
 
-  useEffect(() => {
-    Promise.all([
-      getTrip(id),
-      getAllocation(id).catch(() => null),
-    ])
-      .then(([tripData, allocation]) => {
-        setTrip(tripData)
-        setHasBudget(!!allocation)
-      })
-      .catch(() => toast.error('Failed to load trip'))
-      .finally(() => setLoading(false))
-  }, [id])
+  async function load() {
+    setLoading(true);
+    setError(false);
+    try {
+      const t = await getTrip(id);
+      setTrip(t);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  if (loading) return <LoadingSpinner />
-  if (!trip) return <p className="text-gray-500">Trip not found.</p>
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
 
-  const departure = new Date(trip.departure_date).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'long', day: 'numeric', year: 'numeric'
-  })
-  const returnDate = new Date(trip.return_date).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'long', day: 'numeric', year: 'numeric'
-  })
+  if (error) return <ErrorState title="Could not load trip" retry={load} />;
+  if (showSkeleton) return <div><Skeleton variant="title" className="w-48 mb-6" /><Skeleton variant="card" /></div>;
+  if (!trip) return null;
+
+  const departure = new Date(trip.departure_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const returnDate = new Date(trip.return_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#1d1d1f]">{trip.destination}</h1>
-      <p className="text-sm text-gray-500 mt-1 capitalize">{trip.trip_purpose} · {trip.num_travelers} traveler{trip.num_travelers > 1 ? 's' : ''}</p>
+      <h1 className="type-section-heading">{trip.destination}</h1>
+      <p className="type-caption text-text-secondary mt-1 capitalize">
+        {trip.trip_purpose} · {trip.num_travelers} traveler{trip.num_travelers > 1 ? 's' : ''}
+      </p>
 
-      {/* Trip Info */}
-      <div className="bg-white rounded-xl p-5 shadow-sm mt-6">
-        <h2 className="text-sm font-semibold text-[#1d1d1f] mb-4">Trip Details</h2>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-gray-500">Destination</span><p className="font-medium text-[#1d1d1f]">{trip.destination}{trip.destination_country ? `, ${trip.destination_country}` : ''}</p></div>
-          <div><span className="text-gray-500">Budget</span><p className="font-medium text-[#1d1d1f]">${trip.total_budget.toLocaleString()}</p></div>
-          <div><span className="text-gray-500">Departure</span><p className="font-medium text-[#1d1d1f]">{departure}</p></div>
-          <div><span className="text-gray-500">Return</span><p className="font-medium text-[#1d1d1f]">{returnDate}</p></div>
-          {trip.hotel_prefs && <div><span className="text-gray-500">Hotel Preference</span><p className="font-medium text-[#1d1d1f] capitalize">{trip.hotel_prefs.replace('_', ' ')}</p></div>}
-          {trip.food_prefs?.length > 0 && <div><span className="text-gray-500">Food Preferences</span><p className="font-medium text-[#1d1d1f] capitalize">{trip.food_prefs.map(f => f.replace('_', ' ')).join(', ')}</p></div>}
-          {trip.activity_prefs?.length > 0 && <div><span className="text-gray-500">Activity Preferences</span><p className="font-medium text-[#1d1d1f] capitalize">{trip.activity_prefs.map(a => a.replace('_', ' ')).join(', ')}</p></div>}
-        </div>
-      </div>
+      <Card elevated className="mt-6 relative">
+        <div className="absolute top-5 right-5 text-4xl">{PURPOSE_EMOJI[trip.trip_purpose] || '✈️'}</div>
+        <h2 className="type-card-title">Overview</h2>
+        <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <dt className="type-caption text-text-tertiary">Departure</dt>
+            <dd className="type-body mt-0.5">{departure}</dd>
+          </div>
+          <div>
+            <dt className="type-caption text-text-tertiary">Return</dt>
+            <dd className="type-body mt-0.5">{returnDate}</dd>
+          </div>
+          <div>
+            <dt className="type-caption text-text-tertiary">Total Budget</dt>
+            <dd className="type-body-emphasis mt-0.5">${trip.total_budget.toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt className="type-caption text-text-tertiary">Hotel Style</dt>
+            <dd className="type-body mt-0.5 capitalize">{(trip.hotel_prefs || 'mid_range').replace('_', ' ')}</dd>
+          </div>
+        </dl>
+      </Card>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <Link to={`/trips/${id}/budget`} className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl mb-2">📊</div>
-          <h3 className="text-sm font-semibold text-[#1d1d1f]">{hasBudget ? 'View Budget' : 'Generate Budget'}</h3>
-          <p className="text-xs text-gray-500 mt-1">{hasBudget ? 'See your budget breakdown' : 'Get a smart budget allocation'}</p>
+      <h2 className="type-card-title mt-8 mb-3">Quick Actions</h2>
+      <div className="flex flex-wrap gap-3">
+        <Link to={`/trips/${id}/budget`}>
+          <Button variant="pill-outline" icon={CalculatorIcon}>Budget</Button>
         </Link>
-        <Link to={`/trips/${id}/ai`} className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl mb-2">🤖</div>
-          <h3 className="text-sm font-semibold text-[#1d1d1f]">AI Advisor</h3>
-          <p className="text-xs text-gray-500 mt-1">Get AI-powered travel advice</p>
+        <Link to={`/trips/${id}/ai`}>
+          <Button variant="pill-outline" icon={SparklesIcon}>AI Advisor</Button>
         </Link>
-        <Link to={`/trips/${id}/recommendations`} className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl mb-2">⭐</div>
-          <h3 className="text-sm font-semibold text-[#1d1d1f]">Recommendations</h3>
-          <p className="text-xs text-gray-500 mt-1">View saved recommendations</p>
+        <Link to={`/trips/${id}/recommendations`}>
+          <Button variant="pill-outline" icon={BookmarkIcon}>Recommendations</Button>
         </Link>
       </div>
     </div>
-  )
+  );
 }
