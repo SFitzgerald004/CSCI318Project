@@ -211,6 +211,50 @@ class TestAiRoutes:
         assert data["error"] == "Could not reach AI service"
 
 
+    def test_messages_requires_auth(self, client):
+        response = client.get('/api/ai/trip123/messages')
+        assert response.status_code == 401
+
+    @patch("routes.ai.AiMessage")
+    @patch("routes.ai.Trip")
+    def test_messages_returns_history(self, MockTrip, MockAiMsg, app):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAiMsg.get_by_trip.return_value = [
+            {"id": "m1", "role": "user", "content": "hi", "action": "analyze"},
+            {"id": "m2", "role": "ai", "content": "advice", "action": "analyze"},
+        ]
+        from routes.ai import messages
+        inner = mock_auth(messages.__wrapped__)
+        with app.test_request_context("/api/ai/trip123/messages", method="GET") as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        assert status == 200
+        data = response.get_json()
+        assert len(data) == 2
+        assert data[0]["id"] == "m1"
+        MockAiMsg.get_by_trip.assert_called_once_with("trip123")
+
+    @patch("routes.ai.Trip")
+    def test_messages_trip_not_found(self, MockTrip, app):
+        MockTrip.get.return_value = None
+        from routes.ai import messages
+        inner = mock_auth(messages.__wrapped__)
+        with app.test_request_context("/api/ai/trip123/messages", method="GET") as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        assert status == 404
+
+    @patch("routes.ai.Trip")
+    def test_messages_unauthorized(self, MockTrip, app):
+        MockTrip.get.return_value = {"user_id": "other-user"}
+        from routes.ai import messages
+        inner = mock_auth(messages.__wrapped__)
+        with app.test_request_context("/api/ai/trip123/messages", method="GET") as ctx:
+            ctx.request.uid = "test-user-123"
+            response, status = inner("trip123")
+        assert status == 403
+
+
 class TestRecommendationRoutes:
     """Test recommendation API endpoints."""
 

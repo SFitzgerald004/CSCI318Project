@@ -3,6 +3,7 @@ import uuid
 from flask import Blueprint, request, jsonify
 from models.trip import Trip
 from models.budget import BudgetAllocation
+from models.ai_message import AiMessage
 from services.ai_service import analyze_budget, get_recommendations
 from routes.auth import require_auth
 
@@ -32,6 +33,18 @@ def analyze(trip_id):
         "message_id": str(uuid.uuid4()),
         "tools_used": tools_used,
     }), 200
+
+
+@ai_bp.route("/api/ai/<trip_id>/messages", methods=["GET"])
+@require_auth
+def messages(trip_id):
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({"error": "Trip not found"}), 404
+    if trip["user_id"] != request.uid:
+        return jsonify({"error": "Unauthorized"}), 403
+    msgs = AiMessage.get_by_trip(trip_id)
+    return jsonify(msgs), 200
 
 
 @ai_bp.route("/api/ai/<trip_id>/recommend", methods=["POST"])
