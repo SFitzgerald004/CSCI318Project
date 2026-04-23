@@ -39,51 +39,45 @@ class AiMessage:
         )
 
     @staticmethod
-    def get_cached(trip_id, action):
-        """Return the most recent AI message for this trip + action, or None.
+    def _fetch_all_for_trip(trip_id):
+        """Fetch all ai_messages docs for a trip with a single-field query.
 
-        Returns None on any Firestore error (treats as cache miss). This keeps
-        the AI endpoints working even when the required composite index has
-        not been created yet (first-time production deploy) or Firestore is
-        temporarily unavailable.
+        Uses only a where('trip_id', ==, ...) filter so no composite Firestore
+        index is required. Filtering/sorting happens in Python — fine for the
+        expected scale (<50 messages/trip). Returns [] on any Firestore error.
         """
         try:
-            query = (
-                extensions.db.collection(AiMessage.COLLECTION)
-                .where('trip_id', '==', trip_id)
-                .where('action', '==', action)
-                .where('role', '==', 'ai')
-                .order_by('created_at', direction='DESCENDING')
-                .limit(1)
-            )
-            docs = list(query.stream())
+            query = extensions.db.collection(AiMessage.COLLECTION).where('trip_id', '==', trip_id)
+            return [{'id': d.id, **d.to_dict()} for d in query.stream()]
         except Exception:
+            return []
+
+    @staticmethod
+    def get_cached(trip_id, action):
+        """Return the most recent AI message for this trip + action, or None."""
+        docs = AiMessage._fetch_all_for_trip(trip_id)
+        matches = [d for d in docs if d.get('action') == action and d.get('role') == 'ai']
+        if not matches:
             return None
-        if not docs:
-            return None
-        doc = docs[0]
-        return {'id': doc.id, **doc.to_dict()}
+        matches.sort(key=lambda d: d.get('created_at') or datetime.min, reverse=True)
+        return matches[0]
 
     @staticmethod
     def get_by_trip(trip_id):
         """Return all messages for a trip in chronological order.
 
-        Returns [] on any Firestore error so that a missing composite index or
-        transient outage manifests as an empty chat history rather than a 500
-        on the /messages endpoint.
+        Secondary sort on role puts 'user' before 'ai' when timestamps are
+        identical (save_pair writes both messages with the same `now`), so
+        each conversation turn renders as user-prompt-then-ai-response.
         """
-        try:
-            query = (
-                extensions.db.collection(AiMessage.COLLECTION)
-                .where('trip_id', '==', trip_id)
-                .order_by('created_at')
-            )
-            results = []
-            for doc in query.stream():
-                data = doc.to_dict()
-                if isinstance(data.get('created_at'), datetime):
-                    data['created_at'] = data['created_at'].isoformat()
-                results.append({'id': doc.id, **data})
-            return results
-        except Exception:
-            return []
+        docs = AiMessage._fetch_all_for_trip(trip_id)
+        docs.sort(key=lambda d: (
+            d.get('created_at') or datetime.min,
+            0 if d.get('role') == 'user' else 1,
+        ))
+        results = []
+        for data in docs:
+            if isinstance(data.get('created_at'), datetime):
+                data['created_at'] = data['created_at'].isoformat()
+            results.append(data)
+        return results
