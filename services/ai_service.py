@@ -1,7 +1,9 @@
 # ai_service.py
 import os
+import json as _json
 from openai import OpenAI
 import openai
+from services.ai_tools import TOOL_REGISTRY, TOOL_SCHEMAS
 
 client = OpenAI(api_key = os.environ.get('OPENAI_API_KEY'))
 MODEL = 'gpt-4o-mini'
@@ -90,6 +92,36 @@ User preferences (treat as firm constraints):
 Suggest 3 specific {focus} options in {trip['destination']} that fit this budget and these preferences.
 Before suggesting, check get_saved_recommendations so you don't repeat what's already saved.
 For each option: name, brief description, price range, and why it matches their preferences."""
+
+def _run_with_tools(
+    messages: list,
+    tools: list,
+    max_iterations: int = 5,
+) -> tuple:
+    """Run an OpenAI chat completion with optional tool calling.
+
+    Returns (final_content, tools_used, error).
+    """
+    tools_used: list[str] = []
+
+    for _ in range(max_iterations):
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            tools=tools if tools else None,
+            tool_choice="auto" if tools else None,
+            max_tokens=800,
+        )
+        message = response.choices[0].message
+
+        if not message.tool_calls:
+            return (message.content, tools_used, None)
+
+        # Tool-call branch will be extended in Task 10.
+        break
+
+    return (None, tools_used, f"AI exceeded {max_iterations} tool-call iterations")
+
 
 def analyze_budget(trip, allocation):
     departure = trip['departure_date']

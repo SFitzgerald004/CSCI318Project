@@ -136,3 +136,34 @@ class TestNormalizeDates:
         }
         # datetime objects have .date() attribute, should be normalized
         assert _normalize_dates_and_count_nights(trip) == 7
+
+
+from types import SimpleNamespace
+from unittest.mock import patch
+
+
+def _fake_message(content=None, tool_calls=None):
+    """Build a fake OpenAI ChatCompletionMessage-like object."""
+    return SimpleNamespace(content=content, tool_calls=tool_calls or [])
+
+
+def _fake_response(message):
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+class TestRunWithToolsNoToolCalls:
+    @patch("services.ai_service.client")
+    def test_returns_content_and_empty_tools_used(self, mock_client):
+        mock_client.chat.completions.create.return_value = _fake_response(
+            _fake_message(content="Here is my advice.", tool_calls=[])
+        )
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[],
+        )
+        assert content == "Here is my advice."
+        assert tools_used == []
+        assert error is None
+        mock_client.chat.completions.create.assert_called_once()
