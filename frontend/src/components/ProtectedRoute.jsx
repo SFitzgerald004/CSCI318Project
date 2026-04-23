@@ -1,7 +1,6 @@
 import { Navigate, Outlet, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Sidebar from './Sidebar'
-import LoadingSpinner from './LoadingSpinner'
 import { useState, useEffect } from 'react'
 import { getTrip } from '../services/tripService'
 
@@ -18,7 +17,11 @@ export default function ProtectedRoute() {
     }
   }, [id, user])
 
-  if (loading) return <LoadingSpinner />
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
+      <div className="w-8 h-8 border-4 border-[#0071e3] border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
   if (!user) return <Navigate to="/login" replace />
 
   return (
