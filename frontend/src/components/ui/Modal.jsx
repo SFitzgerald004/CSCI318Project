@@ -12,6 +12,8 @@ export default function Modal({ open, onClose, title, children }) {
     };
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
+    // Move focus into the dialog on open
+    panelRef.current?.focus();
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
@@ -31,13 +33,15 @@ export default function Modal({ open, onClose, title, children }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"
+        className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 focus:outline-none"
         style={{ animation: 'slide-up 250ms ease-out' }}
       >
         <div className="flex items-center justify-between mb-6">
           <h2 id={titleId} className="type-card-title">{title}</h2>
           <button
+            type="button"
             aria-label="Close"
             onClick={onClose}
             className="text-text-tertiary hover:text-text-primary transition-colors"

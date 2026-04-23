@@ -31,4 +31,13 @@ describe('<Select>', () => {
     const { container } = render(<Select label="Purpose" options={OPTIONS} value="vacation" onChange={() => {}} />);
     expect(container.querySelector('svg')).toBeInTheDocument();
   });
+  it('applies dark variant classes', () => {
+    render(<Select label="X" options={OPTIONS} value="vacation" onChange={() => {}} variant="dark" />);
+    expect(screen.getByRole('combobox').className).toMatch(/bg-surface-dark-2/);
+  });
+  it('shows error message when error prop is set', () => {
+    render(<Select label="X" options={OPTIONS} value="vacation" onChange={() => {}} error="Required" />);
+    expect(screen.getByText('Required')).toBeInTheDocument();
+    expect(screen.getByText('Required').className).toMatch(/text-red/);
+  });
 });

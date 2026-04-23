@@ -44,4 +44,8 @@ describe('<Modal>', () => {
     fireEvent.click(screen.getByRole('dialog'));
     expect(onClose).not.toHaveBeenCalled();
   });
+  it('close button has type="button" to prevent form submission', () => {
+    render(<Modal open={true} onClose={() => {}} title="T"><p>body</p></Modal>);
+    expect(screen.getByLabelText('Close')).toHaveAttribute('type', 'button');
+  });
 });

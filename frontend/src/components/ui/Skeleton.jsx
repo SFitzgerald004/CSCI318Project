@@ -8,9 +8,6 @@ const VARIANTS = {
 export default function Skeleton({ variant = 'text', className = '' }) {
   const variantClasses = VARIANTS[variant] || VARIANTS.text;
   return (
-    <div
-      className={`bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%] animate-pulse ${variantClasses} ${className}`}
-      style={{ animation: 'shimmer 1.5s infinite linear, pulse 2s infinite' }}
-    />
+    <div className={`bg-gray-200 animate-pulse ${variantClasses} ${className}`} />
   );
 }
