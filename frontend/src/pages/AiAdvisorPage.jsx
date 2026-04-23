@@ -19,6 +19,16 @@ import Button from '../components/ui/Button';
 import { useDelayedLoading } from '../hooks/useDelayedLoading';
 import toast from 'react-hot-toast';
 
+// Normalize backend snake_case fields into the camelCase the UI components read.
+// Works for messages from GET /messages (which have can_save) and for fresh
+// responses from POST /analyze or /recommend (which don't).
+function normalizeMessage(msg) {
+  return {
+    ...msg,
+    canSave: msg.can_save ?? msg.canSave ?? false,
+  };
+}
+
 export default function AiAdvisorPage() {
   const { id } = useParams();
   const [hasBudget, setHasBudget] = useState(null);
@@ -33,8 +43,7 @@ export default function AiAdvisorPage() {
       getAiMessages(id).catch(() => []),
     ]).then(([budgetExists, history]) => {
       setHasBudget(budgetExists);
-      const normalized = history.map((m) => ({ ...m, canSave: m.can_save }));
-      setMessages(normalized);
+      setMessages(history.map(normalizeMessage));
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -53,15 +62,16 @@ export default function AiAdvisorPage() {
     }]);
     try {
       const { advice, tools_used, cached, message_id } = await analyzeBudget(id, { force });
-      setMessages((prev) => [...prev, {
+      setMessages((prev) => [...prev, normalizeMessage({
         id: message_id,
         role: 'ai',
         content: advice,
         action: 'analyze',
         tools_used,
         cached,
+        can_save: false,
         created_at: new Date().toISOString(),
-      }]);
+      })]);
     } catch {
       toast.error('AI service unavailable');
       setMessages((prev) => [...prev, {
@@ -89,17 +99,17 @@ export default function AiAdvisorPage() {
     }]);
     try {
       const { advice, tools_used, cached, message_id } = await getAiRecommendations(id, focus, { force });
-      setMessages((prev) => [...prev, {
+      setMessages((prev) => [...prev, normalizeMessage({
         id: message_id,
         role: 'ai',
         content: advice,
         action: `recommend:${focus}`,
         tools_used,
         cached,
-        canSave: category !== null,
+        can_save: category !== null,
         category,
         created_at: new Date().toISOString(),
-      }]);
+      })]);
     } catch {
       toast.error('AI service unavailable');
       setMessages((prev) => [...prev, {
