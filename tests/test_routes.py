@@ -130,6 +130,9 @@ class TestAiRoutes:
             from flask import request as flask_request
             flask_request.uid = "test-user-123"
             from routes.ai import recommend as _recommend
+            # Note: we access __wrapped__ to reach the undecorated view — patching
+            # require_auth above doesn't help because the route is already
+            # registered. __wrapped__ is set by functools.wraps inside require_auth.
             inner = mock_auth(_recommend.__wrapped__ if hasattr(_recommend, '__wrapped__') else _recommend)
             response, status = inner("trip123")
 
@@ -162,6 +165,9 @@ class TestAiRoutes:
             from flask import request as flask_request
             flask_request.uid = "test-user-123"
             from routes.ai import analyze as _analyze
+            # Note: we access __wrapped__ to reach the undecorated view — patching
+            # require_auth above doesn't help because the route is already
+            # registered. __wrapped__ is set by functools.wraps inside require_auth.
             inner = mock_auth(_analyze.__wrapped__ if hasattr(_analyze, '__wrapped__') else _analyze)
             response, status = inner("trip123")
 
@@ -170,6 +176,39 @@ class TestAiRoutes:
         assert data["advice"] == "advice bullets"
         assert data["tools_used"] == ["get_savings_progress"]
         assert "message_id" in data
+        assert len(data["message_id"]) == 36  # UUID string length
+
+    @patch("routes.ai.analyze_budget")
+    @patch("routes.ai.BudgetAllocation")
+    @patch("routes.ai.Trip")
+    @patch("routes.ai.require_auth", lambda f: mock_auth(f))
+    def test_analyze_view_returns_503_when_service_errors(
+        self, MockTrip, MockAllocation, mock_analyze, app
+    ):
+        MockTrip.get.return_value = {"user_id": "test-user-123"}
+        MockAllocation.get.return_value = {
+            "hotel_budget": 800, "hotel_pct": 27,
+            "food_budget": 600, "food_pct": 20,
+            "activities_budget": 400, "activities_pct": 13,
+            "flights_budget": 900, "flights_pct": 30,
+            "transport_budget": 200, "transport_pct": 7,
+            "misc_budget": 100, "misc_pct": 3,
+        }
+        mock_analyze.return_value = (None, [], "Could not reach AI service")
+
+        with app.test_request_context("/api/ai/trip123/analyze", method="POST"):
+            from flask import request as flask_request
+            flask_request.uid = "test-user-123"
+            from routes.ai import analyze as _analyze
+            # Note: we access __wrapped__ to reach the undecorated view — patching
+            # require_auth above doesn't help because the route is already
+            # registered. __wrapped__ is set by functools.wraps inside require_auth.
+            inner = mock_auth(_analyze.__wrapped__ if hasattr(_analyze, '__wrapped__') else _analyze)
+            response, status = inner("trip123")
+
+        data = response.get_json()
+        assert status == 503
+        assert data["error"] == "Could not reach AI service"
 
 
 class TestRecommendationRoutes:
