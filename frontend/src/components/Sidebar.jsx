@@ -1,56 +1,120 @@
-import { Link, useLocation, useParams } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import {
+  Squares2X2Icon,
+  CalculatorIcon,
+  SparklesIcon,
+  BookmarkIcon,
+  PaperAirplaneIcon,
+  Bars3Icon,
+  XMarkIcon,
+  ArrowLeftIcon,
+} from '@heroicons/react/24/outline';
+import { useAuth } from '../context/AuthContext';
+import Button from './ui/Button';
 
 export default function Sidebar({ tripName }) {
-  const { id } = useParams()
-  const location = useLocation()
-  const { user, logout } = useAuth()
+  const { id } = useParams();
+  const location = useLocation();
+  const { user, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isActive = (path) => location.pathname === path
-
+  const isActive = (path) => location.pathname === path;
   const linkClass = (path) =>
-    `block px-3 py-2 rounded-md text-sm transition-colors ${
+    `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
       isActive(path)
-        ? 'bg-[#0071e3] text-white font-medium'
-        : 'text-gray-400 hover:text-white hover:bg-white/5'
-    }`
+        ? 'bg-apple-blue text-white font-medium'
+        : 'text-white/60 hover:text-white hover:bg-white/5'
+    }`;
 
-  return (
-    <aside className="w-56 bg-[#1d1d1f] min-h-screen flex flex-col p-5 flex-shrink-0">
-      <Link to="/trips" className="text-white text-lg font-semibold mb-6">
+  const sidebarContent = (
+    <>
+      <Link to="/trips" className="flex items-center gap-2 text-white type-tile-heading mb-6">
+        <PaperAirplaneIcon className="w-5 h-5" />
         TripBudget
       </Link>
 
       {id ? (
         <>
-          <Link to="/trips" className="text-gray-500 text-sm mb-4 hover:text-gray-300">
-            ← All Trips
+          <Link to="/trips" className="flex items-center gap-1 text-white/60 text-sm mb-4 hover:text-white">
+            <ArrowLeftIcon className="w-4 h-4" /> All Trips
           </Link>
-          <p className="px-3 text-xs uppercase tracking-wider text-gray-500 mb-2">
+          <p className="px-3 text-xs uppercase tracking-wider text-white/40 mb-2">
             {tripName || 'Trip'}
           </p>
           <nav className="flex flex-col gap-1">
-            <Link to={`/trips/${id}`} className={linkClass(`/trips/${id}`)}>Overview</Link>
-            <Link to={`/trips/${id}/budget`} className={linkClass(`/trips/${id}/budget`)}>Budget</Link>
-            <Link to={`/trips/${id}/ai`} className={linkClass(`/trips/${id}/ai`)}>AI Advisor</Link>
-            <Link to={`/trips/${id}/recommendations`} className={linkClass(`/trips/${id}/recommendations`)}>Recommendations</Link>
+            <Link to={`/trips/${id}`} className={linkClass(`/trips/${id}`)}>
+              <Squares2X2Icon className="w-4 h-4" /> Overview
+            </Link>
+            <Link to={`/trips/${id}/budget`} className={linkClass(`/trips/${id}/budget`)}>
+              <CalculatorIcon className="w-4 h-4" /> Budget
+            </Link>
+            <Link to={`/trips/${id}/ai`} className={linkClass(`/trips/${id}/ai`)}>
+              <SparklesIcon className="w-4 h-4" /> AI Advisor
+            </Link>
+            <Link to={`/trips/${id}/recommendations`} className={linkClass(`/trips/${id}/recommendations`)}>
+              <BookmarkIcon className="w-4 h-4" /> Recommendations
+            </Link>
           </nav>
         </>
       ) : (
         <nav className="flex flex-col gap-1">
-          <Link to="/trips" className={linkClass('/trips')}>My Trips</Link>
+          <Link to="/trips" className={linkClass('/trips')}>
+            <Squares2X2Icon className="w-4 h-4" /> My Trips
+          </Link>
         </nav>
       )}
 
       <div className="mt-auto pt-4 border-t border-white/10">
-        <p className="text-gray-500 text-xs truncate">{user?.email}</p>
-        <button
-          onClick={logout}
-          className="text-gray-600 text-xs mt-2 hover:text-gray-400 transition-colors"
-        >
+        <p className="text-white/40 text-xs truncate">{user?.email}</p>
+        <Button variant="ghost" size="sm" onClick={logout} className="mt-2 !px-0 !text-white/50 hover:!text-white">
           Sign Out
-        </button>
+        </Button>
       </div>
-    </aside>
-  )
+    </>
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Open menu"
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-4 left-4 z-40 md:hidden bg-black/80 backdrop-blur-xl text-white p-2 rounded-lg"
+      >
+        <Bars3Icon className="w-6 h-6" />
+      </button>
+
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+          data-testid="sidebar-overlay"
+        />
+      )}
+
+      <aside
+        className={`
+          fixed md:sticky top-0 left-0 z-50 md:z-0
+          w-56 min-h-screen flex flex-col p-5 flex-shrink-0
+          bg-black/80 backdrop-blur-xl
+          transition-transform duration-250 ease-out
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+        style={{ backdropFilter: 'saturate(180%) blur(20px)' }}
+      >
+        {mobileOpen && (
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMobileOpen(false)}
+            className="md:hidden absolute top-4 right-4 text-white/60 hover:text-white"
+          >
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+        )}
+        {sidebarContent}
+      </aside>
+    </>
+  );
 }
