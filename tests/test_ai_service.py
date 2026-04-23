@@ -1,5 +1,5 @@
-from datetime import date
-from services.ai_service import _humanize_prefs, _build_system_prompt, _build_analyze_prompt, _build_recommend_prompt
+from datetime import date, datetime
+from services.ai_service import _humanize_prefs, _build_system_prompt, _build_analyze_prompt, _build_recommend_prompt, _normalize_dates_and_count_nights
 
 
 class TestHumanizePrefs:
@@ -66,9 +66,10 @@ class TestBuildAnalyzePrompt:
         assert "fine_dining, street_food" in prompt
         assert "['fine_dining'" not in prompt
 
-    def test_has_per_day_figure(self):
+    def test_has_correct_per_day_calculation(self):
         prompt = _build_analyze_prompt(self._trip(), self._allocation())
-        assert "/day" in prompt
+        # 7 nights, $3000 total → $428.57/day
+        assert "$428.57/day" in prompt
 
     def test_treats_preferences_as_constraints(self):
         prompt = _build_analyze_prompt(self._trip(), self._allocation())
@@ -121,3 +122,17 @@ class TestBuildRecommendPrompt:
         prompt = _build_recommend_prompt(self._trip(), self._allocation(), focus="food")
         assert "street_food" in prompt
         assert "museums, nightlife" in prompt
+
+
+class TestNormalizeDates:
+    def test_with_date_objects(self):
+        trip = {"departure_date": date(2026, 7, 1), "return_date": date(2026, 7, 8)}
+        assert _normalize_dates_and_count_nights(trip) == 7
+
+    def test_with_datetime_objects(self):
+        trip = {
+            "departure_date": datetime(2026, 7, 1, 12, 0),
+            "return_date": datetime(2026, 7, 8, 12, 0),
+        }
+        # datetime objects have .date() attribute, should be normalized
+        assert _normalize_dates_and_count_nights(trip) == 7

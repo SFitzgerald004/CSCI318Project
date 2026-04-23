@@ -14,6 +14,17 @@ def _humanize_prefs(prefs: list | None) -> str:
     return ", ".join(prefs)
 
 
+def _normalize_dates_and_count_nights(trip: dict) -> int:
+    """Normalize Firestore-backed dates and return the nights between them."""
+    departure = trip["departure_date"]
+    return_date = trip["return_date"]
+    if hasattr(departure, "date"):
+        departure = departure.date()
+    if hasattr(return_date, "date"):
+        return_date = return_date.date()
+    return (return_date - departure).days
+
+
 def _build_system_prompt() -> str:
     return """You are a travel budget advisor helping a user plan a specific trip.
 
@@ -29,14 +40,7 @@ and practical. Ground advice in the user's stated preferences — do not overrid
 
 
 def _build_analyze_prompt(trip: dict, allocation: dict) -> str:
-    departure = trip["departure_date"]
-    return_date = trip["return_date"]
-    if hasattr(departure, "date"):
-        departure = departure.date()
-    if hasattr(return_date, "date"):
-        return_date = return_date.date()
-    num_nights = (return_date - departure).days
-
+    num_nights = _normalize_dates_and_count_nights(trip)
     per_day = round(trip["total_budget"] / num_nights, 2) if num_nights > 0 else trip["total_budget"]
 
     return f"""Trip: {trip['num_travelers']} traveler(s) going to {trip['destination']} for {num_nights} nights ({trip['trip_purpose']}).
@@ -71,14 +75,7 @@ def _build_recommend_prompt(trip: dict, allocation: dict, focus: str) -> str:
     category_budget = allocation[budget_key]
     category_pct = allocation[pct_key]
 
-    departure = trip["departure_date"]
-    return_date = trip["return_date"]
-    if hasattr(departure, "date"):
-        departure = departure.date()
-    if hasattr(return_date, "date"):
-        return_date = return_date.date()
-    num_nights = (return_date - departure).days
-
+    num_nights = _normalize_dates_and_count_nights(trip)
     per_day = round(category_budget / num_nights, 2) if num_nights > 0 else category_budget
 
     return f"""Trip: {trip['destination']}, {num_nights} nights, {trip['trip_purpose']}, {trip['num_travelers']} traveler(s).
