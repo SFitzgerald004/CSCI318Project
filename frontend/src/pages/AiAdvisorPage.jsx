@@ -75,13 +75,16 @@ export default function AiAdvisorPage() {
       throw new Error('No category');
     }
     try {
-      const firstLine = msg.content.split('\n').find((line) => line.trim().length > 0) || 'AI suggestion';
-      const name = firstLine.slice(0, 80);
+      const categoryLabel = msg.category === 'hotel' ? 'Hotel'
+        : msg.category === 'restaurant' ? 'Food'
+        : msg.category === 'attraction' ? 'Activity'
+        : 'AI';
+      const name = `AI ${categoryLabel} Picks`;
       const rec = await createRecommendation(id, {
         category: msg.category,
         source: 'ai_generated',
         name,
-        description: msg.content.slice(0, 400),
+        description: msg.content,
         is_ai_pick: true,
       });
       toast.success('Saved');

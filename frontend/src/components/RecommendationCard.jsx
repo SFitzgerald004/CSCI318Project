@@ -3,6 +3,15 @@ import Card from './ui/Card';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
 
+// Strip common markdown artifacts (**bold**, *italic*) so AI-generated text
+// reads cleanly. Lists, line breaks, and plain text pass through unchanged.
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold** → bold
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1');  // *italic* → italic
+}
+
 export default function RecommendationCard({ rec, onDelete }) {
   return (
     <Card className="relative group">
@@ -24,7 +33,9 @@ export default function RecommendationCard({ rec, onDelete }) {
 
       <h3 className="type-body-emphasis">{rec.name}</h3>
       {rec.description && (
-        <p className="type-caption text-text-secondary mt-1 whitespace-pre-wrap">{rec.description}</p>
+        <p className="type-caption text-text-secondary mt-1 whitespace-pre-wrap">
+          {stripMarkdown(rec.description)}
+        </p>
       )}
 
       <div className="flex items-center gap-3 mt-3 type-caption text-text-tertiary">
