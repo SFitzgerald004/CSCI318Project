@@ -81,4 +81,37 @@ describe('<AiChatPanel>', () => {
     expect(screen.getByRole('button', { name: /save this/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^saved$/i })).not.toBeInTheDocument();
   });
+
+  it('renders relative timestamp on AI messages', () => {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    render(<AiChatPanel
+      messages={[{ role: 'ai', content: 'Advice', created_at: fiveMinutesAgo }]}
+      thinking={false}
+    />);
+    expect(screen.getByText(/minutes? ago/i)).toBeInTheDocument();
+  });
+
+  it('renders "Cached" pill when message has cached: true', () => {
+    render(<AiChatPanel
+      messages={[{ role: 'ai', content: 'Cached advice', cached: true, created_at: new Date().toISOString() }]}
+      thinking={false}
+    />);
+    expect(screen.getByText('Cached')).toBeInTheDocument();
+  });
+
+  it('does not render "Cached" pill on fresh messages', () => {
+    render(<AiChatPanel
+      messages={[{ role: 'ai', content: 'Fresh advice', cached: false, created_at: new Date().toISOString() }]}
+      thinking={false}
+    />);
+    expect(screen.queryByText('Cached')).not.toBeInTheDocument();
+  });
+
+  it('does not render timestamp on user messages', () => {
+    render(<AiChatPanel
+      messages={[{ role: 'user', content: 'Hello', created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString() }]}
+      thinking={false}
+    />);
+    expect(screen.queryByText(/minutes? ago/i)).not.toBeInTheDocument();
+  });
 });

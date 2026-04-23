@@ -3,6 +3,8 @@ import { ChatBubbleLeftEllipsisIcon, BookmarkIcon } from '@heroicons/react/24/ou
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import ToolBadgeRow from './ToolBadgeRow';
 import Button from './ui/Button';
+import { relativeTime } from '../utils/relativeTime';
+import Badge from './ui/Badge';
 
 function SaveButton({ msg, onSave }) {
   const [saved, setSaved] = useState(false);
@@ -87,6 +89,12 @@ export default function AiChatPanel({ messages, thinking, onSaveRecommendation }
                 : 'bg-white text-text-primary border border-gray-100'
             }`}>
               {msg.content}
+              {msg.role === 'ai' && msg.created_at && (
+                <div className="flex items-center gap-2 mt-1.5 type-micro text-text-tertiary">
+                  <span>{relativeTime(msg.created_at)}</span>
+                  {msg.cached && <Badge variant="neutral">Cached</Badge>}
+                </div>
+              )}
               {msg.role === 'ai' && <ToolBadgeRow toolsUsed={msg.tools_used} />}
               {msg.role === 'ai' && msg.canSave && onSaveRecommendation && (
                 <div className="mt-2">
