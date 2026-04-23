@@ -73,6 +73,18 @@ class TestGetCached:
         result = AiMessage.get_cached(trip_id='trip1', action='analyze')
         assert result is None
 
+    def test_get_cached_returns_none_on_firestore_error(self, mock_db):
+        from models.ai_message import AiMessage
+        query = MagicMock()
+        query.where.return_value = query
+        query.order_by.return_value = query
+        query.limit.return_value = query
+        # Simulate missing-index error
+        query.stream.side_effect = Exception("composite index required")
+        mock_db.collection.return_value = query
+        result = AiMessage.get_cached(trip_id='trip1', action='analyze')
+        assert result is None
+
 
 class TestGetByTrip:
     def test_get_by_trip_returns_messages_in_order(self, mock_db):

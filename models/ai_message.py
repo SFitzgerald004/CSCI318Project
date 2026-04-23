@@ -40,15 +40,25 @@ class AiMessage:
 
     @staticmethod
     def get_cached(trip_id, action):
-        query = (
-            extensions.db.collection(AiMessage.COLLECTION)
-            .where('trip_id', '==', trip_id)
-            .where('action', '==', action)
-            .where('role', '==', 'ai')
-            .order_by('created_at', direction='DESCENDING')
-            .limit(1)
-        )
-        docs = list(query.stream())
+        """Return the most recent AI message for this trip + action, or None.
+
+        Returns None on any Firestore error (treats as cache miss). This keeps
+        the AI endpoints working even when the required composite index has
+        not been created yet (first-time production deploy) or Firestore is
+        temporarily unavailable.
+        """
+        try:
+            query = (
+                extensions.db.collection(AiMessage.COLLECTION)
+                .where('trip_id', '==', trip_id)
+                .where('action', '==', action)
+                .where('role', '==', 'ai')
+                .order_by('created_at', direction='DESCENDING')
+                .limit(1)
+            )
+            docs = list(query.stream())
+        except Exception:
+            return None
         if not docs:
             return None
         doc = docs[0]

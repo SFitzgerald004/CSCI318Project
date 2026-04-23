@@ -46,19 +46,26 @@ def analyze(trip_id):
     if error:
         return jsonify({"error": error}), 503
 
-    _, ai_doc = AiMessage.save_pair(
-        trip_id=trip_id,
-        action="analyze",
-        user_content="Analyze my budget allocation",
-        ai_content=advice,
-        tools_used=tools_used,
-        category=None,
-        can_save=False,
-    )
+    message_id = None
+    try:
+        _, ai_doc = AiMessage.save_pair(
+            trip_id=trip_id,
+            action="analyze",
+            user_content="Analyze my budget allocation",
+            ai_content=advice,
+            tools_used=tools_used,
+            category=None,
+            can_save=False,
+        )
+        message_id = ai_doc["id"]
+    except Exception:
+        # Persistence failed; still return the generated advice so the user
+        # doesn't lose their LLM response. They can re-ask to retry saving.
+        pass
 
     return jsonify({
         "advice": advice,
-        "message_id": ai_doc["id"],
+        "message_id": message_id,
         "tools_used": tools_used,
         "cached": False,
     }), 200
@@ -112,19 +119,24 @@ def recommend(trip_id):
         return jsonify({"error": error}), 503
 
     category = FOCUS_TO_CATEGORY[focus]
-    _, ai_doc = AiMessage.save_pair(
-        trip_id=trip_id,
-        action=action,
-        user_content=f"Get {focus} recommendations",
-        ai_content=advice,
-        tools_used=tools_used,
-        category=category,
-        can_save=category is not None,
-    )
+    message_id = None
+    try:
+        _, ai_doc = AiMessage.save_pair(
+            trip_id=trip_id,
+            action=action,
+            user_content=f"Get {focus} recommendations",
+            ai_content=advice,
+            tools_used=tools_used,
+            category=category,
+            can_save=category is not None,
+        )
+        message_id = ai_doc["id"]
+    except Exception:
+        pass
 
     return jsonify({
         "advice": advice,
-        "message_id": ai_doc["id"],
+        "message_id": message_id,
         "tools_used": tools_used,
         "cached": False,
     }), 200
