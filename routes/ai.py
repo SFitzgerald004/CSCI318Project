@@ -25,6 +25,8 @@ def analyze(trip_id):
     advice, tools_used, error = analyze_budget(trip, allocation)
     if error:
         return jsonify({"error": error}), 503
+    # message_id is ephemeral (not persisted) — Phase 3 will migrate this
+    # to a stable ID once feedback buttons need to reference specific messages.
     return jsonify({
         "advice": advice,
         "message_id": str(uuid.uuid4()),
@@ -52,6 +54,8 @@ def recommend(trip_id):
     advice, tools_used, error = get_recommendations(trip, allocation, focus)
     if error:
         return jsonify({"error": error}), 503
+    # message_id is ephemeral (not persisted) — Phase 3 will migrate this
+    # to a stable ID once feedback buttons need to reference specific messages.
     return jsonify({
         "advice": advice,
         "message_id": str(uuid.uuid4()),

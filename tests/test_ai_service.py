@@ -263,6 +263,29 @@ class TestRunWithToolsErrorRecovery:
         assert tools_used == ["calculate_daily_spend"]
         assert error is None
 
+    @patch("services.ai_service.TOOL_REGISTRY")
+    @patch("services.ai_service.client")
+    def test_tool_dispatch_exception_appends_error_and_continues(self, mock_client, mock_registry):
+        """An uncaught exception inside a tool becomes error JSON, not a 500."""
+        mock_registry.__contains__.return_value = True
+        mock_registry.__getitem__.return_value = lambda **kw: (_ for _ in ()).throw(TypeError("bad args"))
+
+        mock_client.chat.completions.create.side_effect = [
+            _fake_response(_fake_message(tool_calls=[
+                _fake_tool_call("x", "calculate_daily_spend", '{"total_amount": "seven hundred", "num_days": 7}')
+            ])),
+            _fake_response(_fake_message(content="Recovered.")),
+        ]
+        from services.ai_service import _run_with_tools
+
+        content, tools_used, error = _run_with_tools(
+            messages=[{"role": "user", "content": "test"}],
+            tools=[{}],
+        )
+        assert content == "Recovered."
+        assert tools_used == ["calculate_daily_spend"]
+        assert error is None
+
 
 import openai
 from unittest.mock import MagicMock

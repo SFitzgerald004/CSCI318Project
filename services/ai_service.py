@@ -93,6 +93,7 @@ Suggest 3 specific {focus} options in {trip['destination']} that fit this budget
 Before suggesting, check get_saved_recommendations so you don't repeat what's already saved.
 For each option: name, brief description, price range, and why it matches their preferences."""
 
+
 def _run_with_tools(
     messages: list,
     tools: list,
@@ -137,7 +138,10 @@ def _run_with_tools(
                 if name not in TOOL_REGISTRY:
                     result = _json.dumps({"error": f"unknown tool: {name}"})
                 else:
-                    result = TOOL_REGISTRY[name](**args)
+                    try:
+                        result = TOOL_REGISTRY[name](**args)
+                    except Exception as exc:
+                        result = _json.dumps({"error": f"tool error: {exc}"})
 
             tools_used.append(name)
             messages.append({
