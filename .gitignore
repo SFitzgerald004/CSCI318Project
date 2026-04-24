@@ -1,0 +1,11 @@
+.env
+.venv
+*.db
+__pycache__/
+*.pyc
+firebase.json
+*.pdf
+frontend/.env
+frontend/node_modules/
+frontend/dist/
+.DS_Store
