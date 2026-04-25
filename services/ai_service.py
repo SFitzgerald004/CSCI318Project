@@ -138,14 +138,8 @@ def chat_with_ai(trip, user_message, history=None):
         return None, f"AI error: {e.status_code}"
     
 def generate_itinerary_from_recommendations(trip, recommendations):
-    # Generates a day-by-day itinterary from saved recommendations
+    # Generate a day-by-day itinerary from saved recommendations using AI 
     try:
-        # Group recommendations by category
-        hotels = [r for r in recommendations if r.get('category') == 'hotel']
-        restaurants = [r for r in recommendations if r.get('category') == 'restaurant']
-        attractions = [r for r in recommendations if r.get('category') == 'attraction']
-        # Activities too maybe?
-
         # Get trip dates
         departure = trip.get('departure_date')
         return_date = trip.get('return_date')
@@ -164,91 +158,65 @@ def generate_itinerary_from_recommendations(trip, recommendations):
 
         num_days = (end - start).days + 1
 
-        # Build Itinerary Structure
-        itinerary = []
-        current_date = start
+        # Format recommendations for the prompt
+        hotels = [r for r in recommendations if r.get('category') == 'hotel']
+        restaurants = [r for r in recommendations if r.get('category') == 'restaurant']
+        attractions = [r for r in recommendations if r.get('category') == 'attraction']
 
-        for day_num in range(num_days):
-            day_date = current_date.isoformat() if isinstance(current_date, datetime) else str(current_date)
-            day_activities = []
+        recs_text = []
+        if hotels:
+            recs_text.append("HOTELS:\n" + "\n".join([f"- {h.get('name')}: {h.get('description', '')}" for h in hotels]))
+        if restaurants:
+            recs_text.append("RESTAURANTS:\n" + "\n".join([f"- {r.get('name')}: {r.get('description', '')}" for r in restaurants]))
+        if attractions:
+            recs_text.append("ATTRACTIONS:\n" + "\n".join([f"- {a.get('name')}: {a.get('description', '')}" for a in attractions]))
 
-            # Morning: First attraction or activity
-            if attractions:
-                att = attractions.pop(0)
-                day_activities.append({
-                    'time': '09:00',
-                    'title': f"Visit {att.get('name')}",
-                    'location': att.get('address', ''),
-                    'notes': att.get('description', ''),
-                    'category': 'sightseeing'
-                })
-            
-            # Lunch: Restaurant
-            if restaurants:
-                rest = restaurants.pop(0)
-                day_activities.append({
-                    'time': '12:00',
-                    'title': f"Lunch at {rest.get('name')}",
-                    'location': rest.get('address', ''),
-                    'notes': rest.get('description', ''),
-                    'category': 'dining'
-                })
-            
-            # Afternoon: Another attraction or activity
-            if attractions:
-                att = attractions.pop(0)
-                day_activities.append({
-                    'time': '14:00',
-                    'title': f"Explore {att.get('name')}",
-                    'location': att.get('address', ''),
-                    'notes': att.get('description', ''),
-                    'category': 'sightseeing'
-                })
-            
-            # Dinner: Another restaurant
-            if restaurants:
-                rest = restaurants.pop(0)
-                day_activities.append({
-                    'time': '19:00',
-                    'title': f"Dinner at {rest.get('name')}",
-                    'location': rest.get('address', ''),
-                    'notes': rest.get('description', ''),
-                    'category': 'dining'
-                })
-            
-            # Accommodation for first day
-            if day_num == 0 and hotels:
-                hotel = hotels[0]
-                day_activities.append({
-                    'time': '15:00',
-                    'title': f"Check-in at {hotel.get('name')}",
-                    'location': hotel.get('address', ''),
-                    'notes': hotel.get('description', ''),
-                    'category': 'accommodation'
-                })
-            
-            # Last day: Check-out
-            if day_num == num_days - 1 and hotels:
-                hotel = hotels[0]
-                day_activities.append({
-                    'time': '11:00',
-                    'title': f"Check-out from {hotel.get('name')}",
-                    'location': hotel.get('address', ''),
-                    'notes': 'Checkout time',
-                    'category': 'accommodation'
-                })
+        recommendations_str = "\n\n".join(recs_text)
 
-            itinerary.append({
-                'date': day_date,
-                'activities': day_activities
-            })
+        prompt = f"""Create a {num_days}-day itinerary for a {trip.get('trip_purpose', 'trip')} to {trip.get('destination')}.
+        
+Available recommendations:
+{recommendations_str}
 
-            if hasattr(current_date, 'date'):
-                current_date = current_date + timedelta(days=1)
-            else:
-                current_date = current_date + timedelta(days=1)
+Rules:
+- Day 1: Check-in at hotel in the afternoon (around 15:00)
+- Day {num_days}: Check-out from hotel in the morning (around 11:00)
+- Distribute activities, restaurants, and hotels across the days logically
+- Breakfast is typically 8:00-9:00, lunch 12:00-13:00, dinner 18:00-20:00
+- Morning activities: 9:00-12:00, Afternoon activities: 14:00-18:00
+- If you run out of a category, repeat items as needed
 
+Respond ONLY with a JSON array (no extra text), where each day has:
+{{
+  "date": "YYYY-MM-DD",
+  "activities": [
+    {{"time": "HH:MM", "title": "Activity name", "location": "address or empty", "notes": "description or empty", "category": "one of: accommodation, dining, sightseeing, activity"}}
+  ]
+}}
+
+Example format:
+[
+  {{"date": "2026-05-01", "activities": [
+    {{"time": "15:00", "title": "Check-in at Hotel Name", "location": "123 Main St", "notes": "Confirmation #123", "category": "accommodation"}},
+    {{"time": "19:00", "title": "Dinner at Restaurant Name", "location": "456 Oak Ave", "notes": "Reservation made", "category": "dining"}}
+  ]}}
+]"""
+
+        response = client.chat.completions.create(
+            model=MODEL,
+            max_tokens=4000,
+            messages=[
+                {'role': 'system', 'content': 'You are a travel planner. Create well-organized day-by-day itineraries. Respond only with valid JSON, no markdown.'},
+                {'role': 'user', 'content': prompt}
+            ]
+        )
+
+        import json
+        raw = response.choices[0].message.content
+        itinerary = json.loads(raw)
         return itinerary, None
-    
+
+    except json.JSONDecodeError:
+        return None, 'Failed to parse AI response'
     except Exception as e:
         return None, str(e)
