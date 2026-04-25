@@ -44,3 +44,32 @@ def get_trip(trip_id):
     if trip['user_id'] != request.uid:
         return jsonify({'error': 'Unauthorized'}), 403
     return jsonify(trip), 200
+
+# Itinerary routes
+
+@trips_bp.route('/api/trips/<trip_id>/itinerary', methods=['GET'])
+@require_auth
+def get_itinerary(trip_id):
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    if trip['user_id'] != request.uid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    itinerary = trip.get('itinerary', [])
+    return jsonify(itinerary), 200
+
+@trips_bp.route('/api/trips/<trip_id>/itinerary', methods=["PUT"])
+@require_auth
+def update_itinerary(trip_id):
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    if trip['user_id'] != request.uid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    itinerary = request.get_json()
+    if not isinstance(itinerary, list):
+        return jsonify({'error': 'Itinerary must be a list'}), 400
+    
+    Trip.update_itinerary(trip_id, itinerary)
+    return jsonify({'success': True, 'itinerary': itinerary}), 200
