@@ -9,7 +9,7 @@ const CATEGORY_ICONS = {
   activity: '🎯',
 }
 
-export default function ItineraryDay({ day, dayIndex, onUpdateActivity, onDeleteActivitym, onAddActivity }) {
+export default function ItineraryDay({ day, dayIndex, onUpdateActivity, onDeleteActivity, onAddActivity }) {
     const [isExpanded, setIsExpanded] = useState(true)
     const [showAddForm, setShowAddForm] = useState(false)
     const [newActivity, setNewActivity] = useState({ time: '', title: '', location: '', notes: '', categories: 'activity' })

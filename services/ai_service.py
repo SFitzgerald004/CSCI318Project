@@ -137,3 +137,118 @@ def chat_with_ai(trip, user_message, history=None):
     except openai.APIStatusError as e:
         return None, f"AI error: {e.status_code}"
     
+def generate_itinerary_from_recommendations(trip, recommendations):
+    # Generates a day-by-day itinterary from saved recommendations
+    try:
+        # Group recommendations by category
+        hotels = [r for r in recommendations if r.get('category') == 'hotel']
+        restaurants = [r for r in recommendations if r.get('category') == 'restaurant']
+        attractions = [r for r in recommendations if r.get('category') == 'attraction']
+        # Activities too maybe?
+
+        # Get trip dates
+        departure = trip.get('departure_date')
+        return_date = trip.get('return_date')
+
+        if not departure or not return_date:
+            return None, 'Trip dates not found'
+        
+        from datetime import datetime, timedelta
+        start = datetime.fromisoformat(departure.replace('+00:00', 'Z').replace('Z', '')) if isinstance(departure, str) else departure
+        end = datetime.fromisoformat(return_date.replace('+00:00', 'Z').replace('Z', '')) if isinstance(return_date, str) else return_date
+
+        if hasattr(start, 'date'):
+            start = start.date()
+        if hasattr(end, 'date'):
+            end = end.date()
+
+        num_days = (end - start).days + 1
+
+        # Build Itinerary Structure
+        itinerary = []
+        current_date = start
+
+        for day_num in range(num_days):
+            day_date = current_date.isoformat() if isinstance(current_date, datetime) else str(current_date)
+            day_activities = []
+
+            # Morning: First attraction or activity
+            if attractions:
+                att = attractions.pop(0)
+                day_activities.append({
+                    'time': '09:00',
+                    'title': f"Visit {att.get('name')}",
+                    'location': att.get('address', ''),
+                    'notes': att.get('description', ''),
+                    'category': 'sightseeing'
+                })
+            
+            # Lunch: Restaurant
+            if restaurants:
+                rest = restaurants.pop(0)
+                day_activities.append({
+                    'time': '12:00',
+                    'title': f"Lunch at {rest.get('name')}",
+                    'location': rest.get('address', ''),
+                    'notes': rest.get('description', ''),
+                    'category': 'dining'
+                })
+            
+            # Afternoon: Another attraction or activity
+            if attractions:
+                att = attractions.pop(0)
+                day_activities.append({
+                    'time': '14:00',
+                    'title': f"Explore {att.get('name')}",
+                    'location': att.get('address', ''),
+                    'notes': att.get('description', ''),
+                    'category': 'sightseeing'
+                })
+            
+            # Dinner: Another restaurant
+            if restaurants:
+                rest = restaurants.pop(0)
+                day_activities.append({
+                    'time': '19:00',
+                    'title': f"Dinner at {rest.get('name')}",
+                    'location': rest.get('address', ''),
+                    'notes': rest.get('description', ''),
+                    'category': 'dining'
+                })
+            
+            # Accommodation for first day
+            if day_num == 0 and hotels:
+                hotel = hotels[0]
+                day_activities.append({
+                    'time': '15:00',
+                    'title': f"Check-in at {hotel.get('name')}",
+                    'location': hotel.get('address', ''),
+                    'notes': hotel.get('description', ''),
+                    'category': 'accommodation'
+                })
+            
+            # Last day: Check-out
+            if day_num == num_days - 1 and hotels:
+                hotel = hotels[0]
+                day_activities.append({
+                    'time': '11:00',
+                    'title': f"Check-out from {hotel.get('name')}",
+                    'location': hotel.get('address', ''),
+                    'notes': 'Checkout time',
+                    'category': 'accommodation'
+                })
+
+            itinerary.append({
+                'date': day_date,
+                'activities': day_activities
+            })
+
+            if hasattr(current_date, 'date'):
+                current_date = current_date + timedelta(days=1)
+            else:
+                current_date = current_date + timedelta(days=1)
+
+        return itinerary, None
+    
+    except Exception as e:
+        return None, str(e)

@@ -17,3 +17,8 @@ export async function chatWithAi(tripId, message, history = []) {
   })
   return data
 }
+
+export async function generateItinerary(tripId) {
+  const { data } = await api.post(`/ai/${tripId}/generate-itinerary`)
+  return data
+}

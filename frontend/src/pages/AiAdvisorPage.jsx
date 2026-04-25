@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getAllocation } from '../services/budgetService'
-import { analyzeBudget, getAiRecommendations, chatWithAi } from '../services/aiService'
+import { analyzeBudget, getAiRecommendations, chatWithAi, generateItinerary } from '../services/aiService'
 import { createRecommendation } from '../services/recommendationService'
 import AiInsightCard from '../components/AiInsightCard'
 import AiChatPanel from '../components/AiChatPanel'
@@ -85,6 +85,24 @@ export default function AiAdvisorPage() {
     )
   }
 
+  async function HandleBuildItinerary() {
+    setActiveAction('itinerary')
+    setMessages((prev) => [...prev, { role: 'user', content: '📋 Build itinerary from my saved recommendations' }])
+    try {
+      const { itinerary, message } = await generateItinerary(id)
+      setMessages((prev) => [...prev, {
+        role: 'ai',
+        content: `${message}\n\nI've created a ${itinerary.length}-day itinerary with your saved recommendations. You can view and edit it on the itinerary page!`
+      }])
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || 'Failed to generate itinerary'
+      toast.error(errorMsg)
+      setMessages((prev) => [...prev, { role: 'ai', content: errorMsg }])
+    } finally {
+      setActiveAction(null)
+    }
+  }
+
   async function handleChatSend(content) {
     const nextUserMessage = { role: 'user', content }
     const nextMessages = [...messages, nextUserMessage]
@@ -129,6 +147,8 @@ export default function AiAdvisorPage() {
           onClick={() => handleRecommend('food')} loading={activeAction === 'food'} />
         <AiInsightCard icon="🎯" title="Activities" description="Get activity picks"
           onClick={() => handleRecommend('activities')} loading={activeAction === 'activities'} />
+        <AiInsightCard icon="📋" title="Itinerary" description="Create an itinerary based on saved recommendations"
+          onClick={HandleBuildItinerary} loading={activeAction === 'itinerary'} />
       </div>
 
       {/* Chat Panel */}
