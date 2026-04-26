@@ -158,10 +158,11 @@ def generate_itinerary_from_recommendations(trip, recommendations):
 
         num_days = (end - start).days + 1
 
-        # Format recommendations for the prompt
+        # Format recommendations for the prompt - NOW INCLUDING FLIGHTS
         hotels = [r for r in recommendations if r.get('category') == 'hotel']
         restaurants = [r for r in recommendations if r.get('category') == 'restaurant']
         attractions = [r for r in recommendations if r.get('category') == 'attraction']
+        flights = [r for r in recommendations if r.get('category') == 'flight']
 
         recs_text = []
         if hotels:
@@ -170,6 +171,8 @@ def generate_itinerary_from_recommendations(trip, recommendations):
             recs_text.append("RESTAURANTS:\n" + "\n".join([f"- {r.get('name')}: {r.get('description', '')}" for r in restaurants]))
         if attractions:
             recs_text.append("ATTRACTIONS:\n" + "\n".join([f"- {a.get('name')}: {a.get('description', '')}" for a in attractions]))
+        if flights:
+            recs_text.append("FLIGHTS:\n" + "\n".join([f"- {f.get('name')}: {f.get('description', '')}" for f in flights]))
 
         recommendations_str = "\n\n".join(recs_text)
 
@@ -179,6 +182,8 @@ Available recommendations:
 {recommendations_str}
 
 Rules:
+- Day 1: Outbound flight in the morning/afternoon (use saved flight info)
+- Day {num_days}: Return flight in the afternoon/evening (use saved flight info)
 - Day 1: Check-in at hotel in the afternoon (around 15:00)
 - Day {num_days}: Check-out from hotel in the morning (around 11:00)
 - Distribute activities, restaurants, and hotels across the days logically
@@ -190,13 +195,14 @@ Respond ONLY with a JSON array (no extra text), where each day has:
 {{
   "date": "YYYY-MM-DD",
   "activities": [
-    {{"time": "HH:MM", "title": "Activity name", "location": "address or empty", "notes": "description or empty", "category": "one of: accommodation, dining, sightseeing, activity"}}
+    {{"time": "HH:MM", "title": "Activity name", "location": "address or empty", "notes": "description or empty", "category": "one of: transport, accommodation, dining, sightseeing, activity"}}
   ]
 }}
 
 Example format:
 [
   {{"date": "2026-05-01", "activities": [
+    {{"time": "10:00", "title": "Flight AA123 to Destination", "location": "", "notes": "Outbound flight", "category": "transport"}},
     {{"time": "15:00", "title": "Check-in at Hotel Name", "location": "123 Main St", "notes": "Confirmation #123", "category": "accommodation"}},
     {{"time": "19:00", "title": "Dinner at Restaurant Name", "location": "456 Oak Ave", "notes": "Reservation made", "category": "dining"}}
   ]}}
@@ -220,3 +226,59 @@ Example format:
         return None, 'Failed to parse AI response'
     except Exception as e:
         return None, str(e)
+    
+# Using this in place of Flight Lookup APIs
+def get_flight_recommendations(trip, origin, destination):
+    """Get flight recommendations using AI."""
+    departure = trip.get('departure_date')
+    return_date = trip.get('return_date')
+    
+    if hasattr(departure, 'date'):
+        departure = departure.date()
+    if hasattr(return_date, 'date'):
+        return_date = return_date.date()
+
+    prompt = f"""Provide flight recommendations for a trip from {origin} to {destination}.
+
+Trip Details:
+- Destination: {trip.get('destination')}
+- Departure: {departure}
+- Return: {return_date}
+- Purpose: {trip.get('trip_purpose')}
+- Travelers: {trip.get('num_travelers')}
+
+Provide 5 flight options as a JSON array (no other text):
+[
+  {{
+    "airline": "Airline Name",
+    "flight_number": "AA123",
+    "departure_time": "08:00",
+    "arrival_time": "11:30",
+    "duration": "5h 30m",
+    "price_range": "budget" | "mid-range" | "premium",
+    "notes": "Why this is a good option"
+  }}
+]"""
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            max_tokens=1000,
+            messages=[
+                {'role': 'system', 'content': 'You are a travel advisor. Respond ONLY with valid JSON array, no markdown, no extra text.'},
+                {'role': 'user', 'content': prompt}
+            ]
+        )
+        
+        import json
+        raw = response.choices[0].message.content
+        flights = json.loads(raw)
+        return flights, None
+    except json.JSONDecodeError:
+        return None, 'Failed to parse AI response'
+    except openai.APIConnectionError:
+        return None, 'Could not reach AI service'
+    except openai.RateLimitError:
+        return None, 'AI service rate limit hit, try again shortly'
+    except openai.APIStatusError as e:
+        return None, f'AI error: {e.status_code}'

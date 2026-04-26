@@ -5,6 +5,7 @@ from models.budget import BudgetAllocation
 from services.ai_service import analyze_budget, get_recommendations
 from services.ai_service import chat_with_ai
 from routes.auth import require_auth
+from services.ai_service import get_flight_recommendations
 
 ai_bp = Blueprint('ai', __name__)
 
@@ -102,3 +103,25 @@ def generate_itinerary(trip_id):
     Trip.update_itinerary(trip_id, itinerary)
 
     return jsonify({'itinerary': itinerary, 'message': 'Itinerary generated and saved'})
+
+@ai_bp.route('/api/ai/<trip_id>/flights', methods=['GET'])
+@require_auth
+def get_flights(trip_id):
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    if trip['user_id'] != request.uid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    origin = request.args.get('origin', 'JFK')
+    destination = request.args.get('destination')
+    
+    if not destination:
+        return jsonify({'error': 'destination is required'}), 400
+    
+    recommendations, error = get_flight_recommendations(trip, origin, destination)
+    
+    if error:
+        return jsonify({'error': error}), 503
+    
+    return jsonify(recommendations), 200  # Return the array directly

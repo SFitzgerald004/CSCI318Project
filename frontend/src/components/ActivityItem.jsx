@@ -3,7 +3,7 @@ import { useState } from 'react'
 const CATEGORY_ICONS = {
   dining: '🍽️',
   sightseeing: '🏛️',
-  transport: '🚗',
+  transport: '✈️',
   accommodation: '🏨',
   activity: '🎯',
 }

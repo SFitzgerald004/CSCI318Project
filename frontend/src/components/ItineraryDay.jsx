@@ -4,7 +4,7 @@ import ActivityItem from './ActivityItem'
 const CATEGORY_ICONS = {
   dining: '🍽️',
   sightseeing: '🏛️',
-  transport: '🚗',
+  transport: '✈️',
   accommodation: '🏨',
   activity: '🎯',
 }

@@ -22,3 +22,10 @@ export async function generateItinerary(tripId) {
   const { data } = await api.post(`/ai/${tripId}/generate-itinerary`)
   return data
 }
+
+export async function getFlightRecommendations(tripId, origin, destination) {
+  const { data } = await api.get(`/ai/${tripId}/flights`, {
+    params: { origin, destination }
+  })
+  return data
+}
