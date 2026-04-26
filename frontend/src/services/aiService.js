@@ -29,3 +29,8 @@ export async function getFlightRecommendations(tripId, origin, destination) {
   })
   return data
 }
+
+export async function getActivityRecommendations(tripId) {
+  const { data } = await api.post(`/ai/${tripId}/activities`)
+  return data
+}

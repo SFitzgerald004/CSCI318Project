@@ -6,6 +6,7 @@ from services.ai_service import analyze_budget, get_recommendations
 from services.ai_service import chat_with_ai
 from routes.auth import require_auth
 from services.ai_service import get_flight_recommendations
+from services.ai_service import get_activity_recommendations
 
 ai_bp = Blueprint('ai', __name__)
 
@@ -125,3 +126,24 @@ def get_flights(trip_id):
         return jsonify({'error': error}), 503
     
     return jsonify(recommendations), 200  # Return the array directly
+
+# New AI activity recommendations
+@ai_bp.route('/api/ai/<trip_id>/activities', methods=['POST'])
+@require_auth
+def get_activities(trip_id):
+    # Get real activity recommendations using a hybrid LLM and Google Places API approach
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    if trip['user_id'] != request.uid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    allocation = BudgetAllocation.get(trip_id)
+    if not allocation:
+        return jsonify({'error': 'No budget allocation found'})
+    
+    result, error = get_activity_recommendations(trip, allocation)
+    if error:
+        return jsonify({'error': error}), 503
+    
+    return jsonify({'advice': result['text'], 'items': result['items']}), 200

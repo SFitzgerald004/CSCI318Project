@@ -282,3 +282,82 @@ Provide 5 flight options as a JSON array (no other text):
         return None, 'AI service rate limit hit, try again shortly'
     except openai.APIStatusError as e:
         return None, f'AI error: {e.status_code}'
+    
+# This will help the LLM get a better understanding of the available attractions
+def get_activity_recommendations(trip, allocation):
+    """
+    Hybrid approach: Use LLM to suggest activity types, then search Google Places for real venues.
+    """
+    from services.google_places_service import search_place, normalize_place
+    
+    activities_budget = allocation.get('activities_budget', 0)
+    activity_prefs = trip.get('activity_prefs', [])
+    destination = trip.get('destination')
+    destination_country = trip.get('destination_country', '')
+    trip_purpose = trip.get('trip_purpose', 'vacation')
+    
+    # Step 1: Use LLM to suggest activity search terms
+    location = f"{destination}, {destination_country}" if destination_country else destination
+    
+    prompt = f"""Based on a trip to {location} for {trip_purpose} with a budget of ${activities_budget} for activities:
+    
+User preferences: {activity_prefs if activity_prefs else 'None specified'}
+    
+Suggest 5-7 specific activity search terms that a traveler would search for on Google.
+These should be specific types of attractions or activities (e.g., "museums", "hiking trails", "beaches", "theme parks", "local markets").
+    
+Respond ONLY with a JSON array of strings, no other text:
+["activity 1", "activity 2", "activity 3"]"""
+    
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            max_tokens=300,
+            messages=[
+                {'role': 'system', 'content': 'You are a travel advisor. Respond ONLY with a JSON array of search terms, no markdown, no extra text.'},
+                {'role': 'user', 'content': prompt}
+            ]
+        )
+        
+        import json
+        search_terms = json.loads(response.choices[0].message.content)
+        
+        # Step 2: Search Google Places for each activity type
+        results = []
+        trip_context = {
+            'destination': destination,
+            'destination_country': destination_country
+        }
+        
+        for term in search_terms[:5]:  # Limit to 5 searches
+            place = search_place(term, 'attraction', trip_context)
+            if place:
+                normalized = normalize_place(place)
+                results.append({
+                    'name': place.get('displayName', {}).get('text', term),
+                    'description': f"Popular {term} in {destination}",
+                    'address': normalized.get('address'),
+                    'rating': normalized.get('rating'),
+                    'review_count': normalized.get('review_count'),
+                    'price_level': normalized.get('price_level'),
+                    'booking_url': normalized.get('booking_url'),
+                    'external_id': normalized.get('external_id')
+                })
+        
+        # Build readable response
+        if results:
+            readable = "Here are some popular activities I found:\n\n"
+            for i, r in enumerate(results, 1):
+                rating_str = f" ⭐ {r['rating']}/5" if r.get('rating') else ""
+                address_str = f" 📍 {r['address']}" if r.get('address') else ""
+                readable += f"{i}. **{r['name']}**{rating_str}{address_str}\n   {r['description']}\n\n"
+        else:
+            readable = "I couldn't find specific activities for this destination. Try browsing the recommendations page for saved activities."
+        
+        return {'text': readable, 'items': results}, None
+        
+    except json.JSONDecodeError:
+        return {'text': 'Failed to get activity suggestions', 'items': []}, None
+    except Exception as e:
+        print(f"[ai_service] Error in get_activity_recommendations: {e}")
+        return {'text': 'Sorry, I couldn\'t find activities right now.', 'items': []}, None
