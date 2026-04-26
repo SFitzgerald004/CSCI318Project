@@ -42,6 +42,7 @@ export default function Sidebar({ tripName }) {
             <Link to={`/trips/${id}/ai`} className={linkClass(`/trips/${id}/ai`)}>AI Advisor</Link>
             <Link to={`/trips/${id}/recommendations`} className={linkClass(`/trips/${id}/recommendations`)}>Recommendations</Link>
             <Link to={`/trips/${id}/itinerary`} className={linkClass(`/trips/${id}/itinerary`)}>Itinerary</Link>
+            <Link to={`/trips/${id}/flights`} className={linkClass(`/trips/${id}/flights`)}>Flights</Link>
           </nav>
         </>
       ) : (

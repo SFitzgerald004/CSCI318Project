@@ -75,6 +75,11 @@ export default function TripDetailPage() {
           <h3 className="text-sm font-semibold text-[#1d1d1f]">Itinerary</h3>
           <p className="text-xs text-gray-500 mt-1">Plan your day-to-day activities</p>
         </Link>
+        <Link to={`/trips/${id}/flights`} className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="text-2xl mb-2">✈️</div>
+          <h3 className="text-sm font-semibold text-[#1d1d1f]">Flights</h3>
+          <p className="text-xs text-gray-500 mt-1">Search and compare flight options</p>
+        </Link>
       </div>
     </div>
   )
