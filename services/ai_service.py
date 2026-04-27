@@ -108,7 +108,9 @@ def chat_with_ai(trip, user_message, history=None):
     prompt = f"""
         You are a travel assistant helping with a trip to {trip['destination']}. \
         The trip purpose is {trip['trip_purpose']}. \
-        Give practical, concise answers. If you make suggestions, keep them relevant to the trip.
+        Give practical, concise answers. If you make suggestions, keep them relevant to the trip. \
+        For formatting purposes, do not add special characters as if to add a header or title. \
+        For example, do not send a message '**Transport Costs**:'. Instead, just send 'Transport Costs:'
     """
 
     messages = [
