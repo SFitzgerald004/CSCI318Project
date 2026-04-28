@@ -155,7 +155,7 @@ export default function AiAdvisorPage() {
       <div className="mt-4">
         <AiChatPanel
           messages={messages}
-          onSave={handleSave}
+          onSaveRecommendation={handleSave}
           onSend={handleChatSend}
           sending={sendingChat}
         />

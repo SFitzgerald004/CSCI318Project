@@ -50,8 +50,16 @@ function SaveButton({ msg, onSave }) {
   );
 }
 
-export default function AiChatPanel({ messages, thinking, onSaveRecommendation }) {
+export default function AiChatPanel({ messages, thinking, onSaveRecommendation, onSend, sending }) {
   const bottomRef = useRef(null);
+  const [input, setInput] = useState('');
+
+  function handleSend() {
+    if (input.trim() && onSend) {
+      onSend(input)
+      setInput('')
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,6 +129,22 @@ export default function AiChatPanel({ messages, thinking, onSaveRecommendation }
           </div>
         )}
         <div ref={bottomRef} />
+      </div>
+
+      {/* Message Box */}
+      <div className="border-t border-gray-100 p-3 flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="Ask anything..."
+          className="flex-1 bg-surface-light rounded-lg px-3 py-2 type-body focus:outline-none focus:ring-2 focus:ring-apple-blue"
+          disabled={sending}
+        />
+        <Button onClick={handleSend} disabled={!input.trim() || sending}>
+          Send
+        </Button>
       </div>
     </div>
   );
