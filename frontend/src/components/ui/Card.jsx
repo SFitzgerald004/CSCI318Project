@@ -9,13 +9,14 @@ const PADDINGS = {
   sm: 'p-4',
   md: 'p-5',
   lg: 'p-6',
-};
+}
 
 export default function Card({
   variant = 'white',
   padding = 'md',
   hover = false,
   elevated = false,
+  backgroundImage = null,
   className = '',
   children,
   ...rest
@@ -25,8 +26,20 @@ export default function Card({
   const paddingClasses = PADDINGS[padding] || PADDINGS.md;
   const hoverClasses = hover ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-card' : '';
   const elevatedClasses = elevated ? 'shadow-card' : '';
+
+  // New code to support background images
+  const bgImageStyle = backgroundImage ? {
+    backgroundImage: `linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.95) 100%), url(${backgroundImage})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  } : {};
+
   return (
-    <div className={`${base} ${variantClasses} ${paddingClasses} ${hoverClasses} ${elevatedClasses} ${className}`} {...rest}>
+    <div
+      className={`${base} ${variantClasses} ${paddingClasses} ${hoverClasses} ${elevatedClasses} ${className}`}
+      style={backgroundImage ? bgImageStyle : undefined}
+      {...rest}
+    >
       {children}
     </div>
   );
