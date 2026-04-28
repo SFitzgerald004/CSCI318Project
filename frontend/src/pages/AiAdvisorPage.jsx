@@ -56,7 +56,7 @@ export default function AiAdvisorPage() {
     // Map focus to the recommendation category the backend expects
     const categoryMap = { hotels: 'hotel', food: 'restaurant', activities: 'attraction', overall: 'attraction' }
     try {
-      await createRecommendation(id, {
+      const saved = await createRecommendation(id, {
         name: item.name,
         description: item.description,
         category: categoryMap[focus] || 'attraction',
@@ -64,8 +64,10 @@ export default function AiAdvisorPage() {
         is_ai_pick: true,
       })
       toast.success(`Saved ${item.name}!`)
+      return saved
     } catch {
       toast.error('Failed to save recommendation')
+      throw new Error('save failed')
     }
   }
 

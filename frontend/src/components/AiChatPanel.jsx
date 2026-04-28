@@ -1,52 +1,75 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChatBubbleLeftEllipsisIcon, BookmarkIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import ToolBadgeRow from './ToolBadgeRow';
 import Button from './ui/Button';
 import { relativeTime } from '../utils/relativeTime';
 import Badge from './ui/Badge';
 
-function SaveButton({ msg, onSave }) {
+function RecommendationRow({ item, onSave }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedRec, setSavedRec] = useState(null);
+  const navigate = useNavigate();
+  const { id: tripId } = useParams();
 
-  async function handleClick() {
+  async function doSave() {
+    if (saved) return savedRec;
     setSaving(true);
     try {
-      await onSave(msg);
+      const rec = await onSave();
       setSaved(true);
+      setSavedRec(rec);
+      return rec;
     } catch {
-      // Parent component surfaces toast; we just stay unsaved.
+      // Parent surfaces toast
     } finally {
       setSaving(false);
     }
   }
 
-  if (saved) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        icon={CheckCircleIcon}
-        disabled
-        className="!text-green-600"
-        data-testid="save-button-saved"
-      >
-        Saved
-      </Button>
-    );
+  async function handleRowClick() {
+    const rec = await doSave();
+    if (rec) {
+      navigate(`/trips/${tripId}/recommendations/${rec.id}`, { state: { rec } });
+    }                                                                                                                                     
   }
 
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      icon={BookmarkIcon}
-      loading={saving}
-      onClick={handleClick}
-    >
-      Save this
-    </Button>
+  async function handleClick() {
+    setSaving(true);
+    try {
+      await onSave();
+      setSaved(true);
+    } catch {
+      // Parent surfaces toast; we stay unsaved.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (      
+    <div className="flex items-center justify-between gap-2">
+      <button
+        onClick={handleRowClick}
+        disabled={saving}
+        className="type-body text-text-primary truncate text-left hover:text-apple-blue hover:underline disabled:opacity-50"
+      >                                                                                                                                   
+        • {item.name}
+      </button>                                                                                                                           
+      {saved ? (
+        <span className="flex items-center gap-1 type-micro text-green-600 shrink-0">
+          <CheckCircleIcon className="w-3.5 h-3.5" /> Saved                                                                               
+        </span>
+      ) : (                                                                                                                               
+        <button 
+          onClick={doSave}
+          disabled={saving}
+          className="type-micro text-apple-blue hover:underline shrink-0 disabled:opacity-50"                                             
+        >
+          {saving ? 'Saving…' : 'Save'}                                                                                                   
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -104,9 +127,15 @@ export default function AiChatPanel({ messages, thinking, onSaveRecommendation, 
                 </div>
               )}
               {msg.role === 'ai' && <ToolBadgeRow toolsUsed={msg.tools_used} />}
-              {msg.role === 'ai' && msg.canSave && onSaveRecommendation && (
-                <div className="mt-2">
-                  <SaveButton msg={msg} onSave={onSaveRecommendation} />
+              {msg.role === 'ai' && msg.items && msg.items.length > 0 && onSaveRecommendation && (
+                <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+                  {msg.items.map((item, j) => (
+                    <RecommendationRow
+                      key={j}
+                      item={item}
+                      onSave={() => onSaveRecommendation(item, msg.focus)}
+                    />
+                  ))}
                 </div>
               )}
             </div>

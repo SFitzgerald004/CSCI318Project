@@ -1,4 +1,5 @@
 import { TrashIcon } from '@heroicons/react/24/outline';
+import { Link, useParams } from 'react-router-dom';
 import Card from './ui/Card';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
@@ -13,6 +14,8 @@ function stripMarkdown(text) {
 }
 
 export default function RecommendationCard({ rec, onDelete }) {
+  const { id: tripId } = useParams();
+
   return (
     <Card className="relative group">
       <Button
@@ -25,24 +28,28 @@ export default function RecommendationCard({ rec, onDelete }) {
         <TrashIcon className="w-4 h-4" />
       </Button>
 
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <Badge variant={rec.category === 'car_rental' ? 'car-rental' : rec.category}>{rec.category}</Badge>
-        {rec.source && <Badge variant="neutral">{rec.source.replace('_', ' ')}</Badge>}
-        {rec.is_ai_pick && <Badge variant="ai-pick">AI Pick</Badge>}
-      </div>
-
-      <h3 className="type-body-emphasis">{rec.name}</h3>
-      {rec.description && (
-        <p className="type-caption text-text-secondary mt-1 whitespace-pre-wrap">
-          {stripMarkdown(rec.description)}
-        </p>
-      )}
-
-      <div className="flex items-center gap-3 mt-3 type-caption text-text-tertiary">
-        {rec.rating && <span>⭐ {rec.rating}</span>}
-        {rec.price_level && <span>{rec.price_level}</span>}
-        {rec.address && <span className="truncate">{rec.address}</span>}
-      </div>
+      <Link
+        to={`/trips/${tripId}/recommendations/${rec.id}`}
+        state={{ rec }}
+        className="block"
+      >
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <Badge variant={rec.category === 'car_rental' ? 'car-rental' : rec.category}>{rec.category}</Badge>
+        </div>                                                                                                                            
+                                                                                                                                          
+        <h3 className="type-body-emphasis">{rec.name}</h3>                                                                                
+        {rec.description && (
+          <p className="type-caption text-text-secondary mt-1 whitespace-pre-wrap">                                                       
+            {stripMarkdown(rec.description)}                                                                                              
+          </p>                                                                                                                            
+        )}                                                                                                                                
+                
+        <div className="flex items-center gap-3 mt-3 type-caption text-text-tertiary">                                                    
+          {rec.rating && <span>⭐ {rec.rating}</span>}
+          {rec.price_level && <span>{rec.price_level}</span>}                                                                             
+          {rec.address && <span className="truncate">{rec.address}</span>}                                                                
+        </div>
+      </Link>
     </Card>
   );
 }
