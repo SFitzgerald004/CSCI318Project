@@ -1,78 +1,127 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react';
+import { ChatBubbleLeftEllipsisIcon, BookmarkIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import ToolBadgeRow from './ToolBadgeRow';
+import Button from './ui/Button';
+import { relativeTime } from '../utils/relativeTime';
+import Badge from './ui/Badge';
 
-export default function AiChatPanel({ messages, onSave, onSend, sending }) {
-  const bottomRef = useRef(null)
-  const [draft, setDraft] = useState('')
+function SaveButton({ msg, onSave }) {
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    const message = draft.trim()
-    if (!message || sending) return
-    setDraft('')
-    await onSend(message)
+  async function handleClick() {
+    setSaving(true);
+    try {
+      await onSave(msg);
+      setSaved(true);
+    } catch {
+      // Parent component surfaces toast; we just stay unsaved.
+    } finally {
+      setSaving(false);
+    }
   }
 
-  // Always show the chat panel and input, even if there are no messages
+  if (saved) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={CheckCircleIcon}
+        disabled
+        className="!text-green-600"
+        data-testid="save-button-saved"
+      >
+        Saved
+      </Button>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-sm flex flex-col h-96">
-      <div className="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-[#1d1d1f]">
+    <Button
+      variant="ghost"
+      size="sm"
+      icon={BookmarkIcon}
+      loading={saving}
+      onClick={handleClick}
+    >
+      Save this
+    </Button>
+  );
+}
+
+export default function AiChatPanel({ messages, thinking, onSaveRecommendation }) {
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, thinking]);
+
+  if (messages.length === 0 && !thinking) {
+    return (
+      <div className="bg-white rounded-xl flex flex-col h-80">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 type-body-emphasis">
+          <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-text-tertiary" />
+          AI Chat
+        </div>
+        <div className="flex-1 flex items-center justify-center type-caption text-text-tertiary">
+          Click an action above to start
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl flex flex-col h-[28rem]">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 type-body-emphasis">
+        <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-text-tertiary" />
         AI Chat
       </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0 ? (
-          <div className="text-sm text-gray-400">Ask about your trip, budget, or recommendations.</div>
-        ) : (
-          messages.map((msg, i) => (
-            <div key={i} className="flex gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white flex-shrink-0 ${
-                msg.role === 'ai' ? 'bg-[#0071e3]' : 'bg-[#1d1d1f]'
-              }`}>
-                {msg.role === 'ai' ? 'AI' : 'U'}
-              </div>
-              <div className="flex-1">
-                <div className="bg-[#f5f5f7] rounded-lg px-3 py-2 text-sm text-[#1d1d1f] leading-relaxed max-w-[85%] whitespace-pre-wrap">
-                  {msg.content}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role === 'ai' && (
+              <div className="w-7 h-7 rounded-full bg-apple-blue flex items-center justify-center type-micro font-semibold text-white flex-shrink-0">AI</div>
+            )}
+            <div className={`rounded-lg px-3 py-2 type-body max-w-[80%] whitespace-pre-wrap ${
+              msg.role === 'user'
+                ? 'bg-surface-light text-text-primary'
+                : 'bg-white text-text-primary border border-gray-100'
+            }`}>
+              {msg.content}
+              {msg.role === 'ai' && msg.created_at && (
+                <div className="flex items-center gap-2 mt-1.5 type-micro text-text-tertiary">
+                  <span>{relativeTime(msg.created_at)}</span>
+                  {msg.cached && <Badge variant="neutral">Cached</Badge>}
                 </div>
-                {msg.items?.length > 0 && (
-                  <div className="mt-2 flex flex-col gap-1">
-                    {msg.items.map((item, j) => (
-                      <button
-                        key={j}
-                        onClick={() => onSave(item, msg.focus)}
-                        className="text-xs text-left text-[#0071e3] hover:underline"
-                      >
-                        + Save "{item.name}"
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
+              {msg.role === 'ai' && <ToolBadgeRow toolsUsed={msg.tools_used} />}
+              {msg.role === 'ai' && msg.canSave && onSaveRecommendation && (
+                <div className="mt-2">
+                  <SaveButton msg={msg} onSave={onSaveRecommendation} />
+                </div>
+              )}
             </div>
-          ))
+            {msg.role === 'user' && (
+              <div className="w-7 h-7 rounded-full bg-text-primary flex items-center justify-center type-micro font-semibold text-white flex-shrink-0">You</div>
+            )}
+          </div>
+        ))}
+        {thinking && (
+          <div className="flex gap-2 justify-start">
+            <div className="w-7 h-7 rounded-full bg-apple-blue flex items-center justify-center type-micro font-semibold text-white flex-shrink-0">AI</div>
+            <div
+              data-testid="thinking-dots"
+              className="bg-white border border-gray-100 rounded-lg px-3 py-3 flex gap-1 items-center"
+            >
+              <span className="w-1.5 h-1.5 bg-text-tertiary rounded-full" style={{ animation: 'thinking-dot 0.9s infinite', animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-text-tertiary rounded-full" style={{ animation: 'thinking-dot 0.9s infinite', animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-text-tertiary rounded-full" style={{ animation: 'thinking-dot 0.9s infinite', animationDelay: '300ms' }} />
+            </div>
+          </div>
         )}
         <div ref={bottomRef} />
       </div>
-
-      <form onSubmit={handleSubmit} className="border-t border-gray-100 p-3 flex gap-2">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Ask the AI about this trip..."
-          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none"
-        />
-        <button
-          type="submit"
-          disabled={sending}
-          className="bg-[#0071e3] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-        >
-          {sending ? 'Sending...' : 'Send'}
-        </button>
-      </form>
     </div>
-  )
+  );
 }

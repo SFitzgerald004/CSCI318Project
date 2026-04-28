@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -6,8 +6,10 @@ import {
   signOut,
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
+import { AuthContext } from './AuthContextObject'
 
-const AuthContext = createContext(null)
+// Re-export useAuth so any file still importing from AuthContext keeps working
+export { useAuth } from './useAuth'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -47,8 +49,4 @@ export function AuthProvider({ children }) {
   )
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (!context) throw new Error('useAuth must be used within AuthProvider')
-  return context
-}
+
