@@ -17,22 +17,26 @@ describe('<TripsPage>', () => {
     vi.clearAllMocks();
   });
 
-  it('shows empty state when no trips', async () => {
+  it('shows editorial empty state when no trips', async () => {
     renderTripsPage();
-    await waitFor(() => expect(screen.getByText(/no trips yet/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/begin a chapter/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/no journeys/i)).toBeInTheDocument();
   });
 
-  it('opens modal when "New Trip" button clicked', async () => {
+  it('opens modal when "New trip" button clicked', async () => {
     renderTripsPage();
-    await waitFor(() => expect(screen.getByText(/no trips yet/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /new trip/i }));
+    await waitFor(() => expect(screen.getByText(/begin a chapter/i)).toBeInTheDocument());
+    // there are two "Plan a trip"/"New trip" CTAs in the empty state — pick the topbar one
+    fireEvent.click(screen.getByRole('button', { name: /^new trip$/i }));
     expect(screen.getByText(/plan a new trip/i)).toBeInTheDocument();
   });
 
   it('closes modal when close button clicked', async () => {
     renderTripsPage();
-    await waitFor(() => expect(screen.getByText(/no trips yet/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /new trip/i }));
+    await waitFor(() => expect(screen.getByText(/begin a chapter/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /^new trip$/i }));
     fireEvent.click(screen.getByLabelText('Close'));
     expect(screen.queryByText(/plan a new trip/i)).not.toBeInTheDocument();
   });

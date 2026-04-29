@@ -1,27 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import {
-  ChartBarIcon,
-  GlobeAltIcon,
-  BuildingOffice2Icon,
-  CakeIcon,
-  MapPinIcon,
-  SparklesIcon,
-} from '@heroicons/react/24/outline';
+import { getTrip } from '../services/tripService';
 import { getAllocation } from '../services/budgetService';
 import { analyzeBudget, getAiRecommendations, getAiMessages } from '../services/aiService';
 import { createRecommendation } from '../services/recommendationService';
-import AiInsightCard from '../components/AiInsightCard';
 import AiChatPanel from '../components/AiChatPanel';
 import Skeleton from '../components/ui/Skeleton';
-import EmptyState from '../components/ui/EmptyState';
-import Button from '../components/ui/Button';
 import { useDelayedLoading } from '../hooks/useDelayedLoading';
+import { EdIcon } from '../components/editorial';
+import { shortDate } from '../components/editorialHelpers';
 import toast from 'react-hot-toast';
 
-// Normalize backend snake_case fields into the camelCase the UI components read.
-// Works for messages from GET /messages (which have can_save) and for fresh
-// responses from POST /analyze or /recommend (which don't).
+// Normalize backend snake_case to camelCase for chat panel.
 function normalizeMessage(msg) {
   return {
     ...msg,
@@ -29,8 +19,24 @@ function normalizeMessage(msg) {
   };
 }
 
+const ACTIONS = [
+  { key: 'analyze',    label: 'Analyze my budget',         category: null },
+  { key: 'overall',    label: 'Overall recommendations',    category: null },
+  { key: 'hotels',     label: 'Hotel picks',                category: 'hotel' },
+  { key: 'food',       label: 'Food picks',                 category: 'restaurant' },
+  { key: 'activities', label: 'Activity picks',             category: 'attraction' },
+];
+
+const SUGGESTED_QUESTIONS = [
+  '"Find me a quiet place I can afford."',
+  '"What\'s a realistic food budget for my trip?"',
+  '"Which neighborhoods should I stay in?"',
+  '"Pack list for the dates I\'m going."',
+];
+
 export default function AiAdvisorPage() {
   const { id } = useParams();
+  const [trip, setTrip] = useState(null);
   const [hasBudget, setHasBudget] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeAction, setActiveAction] = useState(null);
@@ -39,9 +45,11 @@ export default function AiAdvisorPage() {
 
   useEffect(() => {
     Promise.all([
+      getTrip(id).catch(() => null),
       getAllocation(id).then(() => true).catch(() => false),
       getAiMessages(id).catch(() => []),
-    ]).then(([budgetExists, history]) => {
+    ]).then(([t, budgetExists, history]) => {
+      setTrip(t);
       setHasBudget(budgetExists);
       setMessages(history.map(normalizeMessage));
     }).finally(() => setLoading(false));
@@ -86,10 +94,8 @@ export default function AiAdvisorPage() {
 
   async function handleRecommend(focus, force = false) {
     setActiveAction(focus);
-    const category = focus === 'hotels' ? 'hotel'
-      : focus === 'food' ? 'restaurant'
-      : focus === 'activities' ? 'attraction'
-      : null;
+    const action = ACTIONS.find((a) => a.key === focus);
+    const category = action?.category ?? null;
 
     setMessages((prev) => [...prev, {
       role: 'user',
@@ -148,73 +154,185 @@ export default function AiAdvisorPage() {
     }
   }
 
+  function runAction(key, force = false) {
+    if (key === 'analyze') return handleAnalyze(force);
+    return handleRecommend(key, force);
+  }
+
   if (showSkeleton) {
-    return <div><Skeleton variant="title" className="w-48 mb-6" /><Skeleton variant="card" /></div>;
+    return (
+      <div style={{ padding: 48 }}>
+        <Skeleton variant="title" className="w-64 mb-6" />
+        <Skeleton variant="card" />
+      </div>
+    );
   }
 
   if (!hasBudget) {
     return (
-      <EmptyState
-        icon={<ChartBarIcon className="w-12 h-12" />}
-        title="Generate a budget first"
-        description="The AI advisor needs a budget allocation to work with."
-        action={
-          <Link to={`/trips/${id}/budget`}>
-            <Button>Go to Budget</Button>
-          </Link>
-        }
-      />
+      <div style={{ padding: '64px 48px', display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
+        <span className="eyebrow">Advisor not yet ready</span>
+        <div className="h-1" style={{ fontSize: 56 }}>
+          A budget,<br /><span className="serif-i">first.</span>
+        </div>
+        <p className="body-l">
+          The advisor needs a budget allocation before it can offer informed advice. Generate one and come back.
+        </p>
+        <Link to={`/trips/${id}/budget`} className="btn" style={{ alignSelf: 'flex-start' }}>
+          <EdIcon name="wallet" size={12} />Go to budget
+        </Link>
+      </div>
     );
   }
 
+  const firstName = trip?.destination || 'your trip';
+  const dates = trip?.departure_date && trip?.return_date
+    ? `${shortDate(trip.departure_date)} – ${shortDate(trip.return_date)}`
+    : null;
+
   return (
-    <div>
-      <h1 className="type-section-heading">AI Advisor</h1>
-      <p className="type-caption text-text-secondary mt-1">Get AI-powered budget analysis and recommendations</p>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-6">
-        <AiInsightCard
-          icon={ChartBarIcon} title="Analyze Budget" description="Get AI feedback on your allocation"
-          onClick={() => handleAnalyze(false)} loading={activeAction === 'analyze'}
-          alreadyAsked={askedActions.has('analyze')} onRefresh={() => handleAnalyze(true)}
-        />
-        <AiInsightCard
-          icon={GlobeAltIcon} title="Overall" description="Get overall recommendations"
-          onClick={() => handleRecommend('overall', false)} loading={activeAction === 'overall'}
-          alreadyAsked={askedActions.has('recommend:overall')} onRefresh={() => handleRecommend('overall', true)}
-        />
-        <AiInsightCard
-          icon={BuildingOffice2Icon} title="Hotels" description="Get hotel picks"
-          onClick={() => handleRecommend('hotels', false)} loading={activeAction === 'hotels'}
-          alreadyAsked={askedActions.has('recommend:hotels')} onRefresh={() => handleRecommend('hotels', true)}
-        />
-        <AiInsightCard
-          icon={CakeIcon} title="Food" description="Get food picks"
-          onClick={() => handleRecommend('food', false)} loading={activeAction === 'food'}
-          alreadyAsked={askedActions.has('recommend:food')} onRefresh={() => handleRecommend('food', true)}
-        />
-        <AiInsightCard
-          icon={MapPinIcon} title="Activities" description="Get activity picks"
-          onClick={() => handleRecommend('activities', false)} loading={activeAction === 'activities'}
-          alreadyAsked={askedActions.has('recommend:activities')} onRefresh={() => handleRecommend('activities', true)}
-        />
+    <>
+      {/* Editorial header */}
+      <div
+        style={{
+          padding: '24px 48px 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: 'var(--ink)',
+              color: 'var(--paper)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <EdIcon name="sparkle" size={14} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+            <span className="eyebrow">Wayfare Advisor</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>A travel companion · always on</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {trip && <span className="chip">{firstName}{dates ? ` · ${dates.split(' – ')[0]}` : ''}</span>}
+          {trip?.total_budget && <span className="chip">${Number(trip.total_budget).toLocaleString()} budget</span>}
+          {trip?.trip_purpose && (
+            <span className="chip" style={{ textTransform: 'capitalize' }}>
+              {trip.trip_purpose}{trip.num_travelers > 1 ? ` · ${trip.num_travelers}` : ' · solo'}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="mt-6">
-        {messages.length === 0 && !activeAction ? (
-          <EmptyState
-            icon={<SparklesIcon className="w-12 h-12" />}
-            title="Ask the AI"
-            description="Click an action above to start a conversation."
-          />
-        ) : (
-          <AiChatPanel
-            messages={messages}
-            thinking={activeAction !== null}
-            onSaveRecommendation={handleSaveRecommendation}
-          />
-        )}
+      {/* Hero question */}
+      <div style={{ padding: '40px 48px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <span className="eyebrow">Today, ask me about…</span>
+        <div className="serif" style={{ fontSize: 64, lineHeight: 0.95, letterSpacing: '-0.02em', maxWidth: 880 }}>
+          What should I know
+          <br />about <span className="serif-i" style={{ color: 'var(--indigo)' }}>{firstName}</span>
+          <br />before I go?
+        </div>
       </div>
-    </div>
+
+      {/* Action chips */}
+      <div style={{ padding: '0 48px 16px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {ACTIONS.map((a) => {
+          const isActive = activeAction === a.key;
+          const wasAsked = askedActions.has(a.key === 'analyze' ? 'analyze' : `recommend:${a.key}`);
+          return (
+            <button
+              key={a.key}
+              className={`chip ${wasAsked ? 'indigo' : ''}`}
+              style={{
+                padding: '8px 14px',
+                fontSize: 12,
+                cursor: 'pointer',
+                opacity: activeAction && !isActive ? 0.5 : 1,
+              }}
+              onClick={() => runAction(a.key, wasAsked)}
+              disabled={activeAction !== null}
+              title={wasAsked ? 'Re-ask · forces a fresh answer' : 'Ask the advisor'}
+            >
+              {wasAsked && <EdIcon name="refresh" size={10} />}
+              {a.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Reply area + right rail */}
+      <div
+        style={{
+          padding: '12px 48px 96px',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 280px)',
+          gap: 32,
+          alignItems: 'start',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          {messages.length === 0 && !activeAction ? (
+            <div
+              style={{
+                padding: '40px 0',
+                borderTop: '1px solid var(--rule)',
+                borderBottom: '1px solid var(--rule)',
+              }}
+            >
+              <div className="serif-i" style={{ fontSize: 26, lineHeight: 1.3, maxWidth: 620, color: 'var(--ink-2)' }}>
+                "Pick an action above and I'll draft something useful — analyze the budget, suggest hotels, food spots, or activities. I'll show my sources every time."
+              </div>
+            </div>
+          ) : (
+            <AiChatPanel
+              messages={messages}
+              thinking={activeAction !== null}
+              onSaveRecommendation={handleSaveRecommendation}
+            />
+          )}
+        </div>
+
+        {/* Right rail — Try also */}
+        <aside
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            paddingLeft: 28,
+            borderLeft: '1px solid var(--rule)',
+          }}
+        >
+          <span className="eyebrow ink">Try also</span>
+          {SUGGESTED_QUESTIONS.map((q, i) => (
+            <div
+              key={i}
+              className="serif-i"
+              style={{
+                fontSize: 16,
+                lineHeight: 1.3,
+                paddingBottom: 10,
+                borderBottom: '1px dashed var(--rule)',
+                color: 'var(--ink-2)',
+              }}
+            >
+              {q}
+            </div>
+          ))}
+          <p className="cap" style={{ marginTop: 6 }}>
+            Use the action chips above — they wire to your trip and budget for grounded answers.
+          </p>
+        </aside>
+      </div>
+    </>
   );
 }

@@ -3,7 +3,14 @@ from flask import Blueprint, request, jsonify
 from models.trip import Trip
 from models.budget import BudgetAllocation
 from models.ai_message import AiMessage
-from services.ai_service import analyze_budget, get_recommendations
+from services.ai_service import (
+    analyze_budget,
+    get_recommendations,
+    chat_with_ai,
+    generate_itinerary_from_recommendations,
+    get_flight_recommendations,
+    get_activity_recommendations,
+)
 from routes.auth import require_auth
 
 ai_bp = Blueprint("ai", __name__)
@@ -140,3 +147,100 @@ def recommend(trip_id):
         "tools_used": tools_used,
         "cached": False,
     }), 200
+
+
+# ===== New endpoints (cherry-picked from backend) =====
+
+@ai_bp.route("/api/ai/<trip_id>/chat", methods=["POST"])
+@require_auth
+def ai_chat(trip_id):
+    """Free-form chat with the travel advisor. Sends `message` + optional `history`."""
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({"error": "Trip not found"}), 404
+    if trip["user_id"] != request.uid:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Empty request"}), 400
+
+    user_message = (data.get("message") or "").strip()
+    if not user_message:
+        return jsonify({"error": "message is required"}), 400
+
+    history = data.get("history", [])
+
+    reply, error = chat_with_ai(trip, user_message, history)
+    if error:
+        return jsonify({"error": error}), 503
+
+    return jsonify({"response": reply}), 200
+
+
+@ai_bp.route("/api/ai/<trip_id>/generate-itinerary", methods=["POST"])
+@require_auth
+def generate_itinerary(trip_id):
+    """Generate a day-by-day itinerary using saved recommendations."""
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({"error": "Trip not found"}), 404
+    if trip["user_id"] != request.uid:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    from models.recommendation import Recommendation
+    recommendations = Recommendation.get_by_trip(trip_id)
+
+    if not recommendations:
+        return jsonify({"error": "No saved recommendations found. Save some recommendations first!"}), 400
+
+    itinerary, error = generate_itinerary_from_recommendations(trip, recommendations)
+    if error:
+        return jsonify({"error": error}), 503
+
+    Trip.update_itinerary(trip_id, itinerary)
+    return jsonify({"itinerary": itinerary, "message": "Itinerary generated and saved"}), 200
+
+
+@ai_bp.route("/api/ai/<trip_id>/flights", methods=["GET"])
+@require_auth
+def ai_flight_recommendations(trip_id):
+    """LLM-generated flight options for the trip route."""
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({"error": "Trip not found"}), 404
+    if trip["user_id"] != request.uid:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    origin = request.args.get("origin", "JFK")
+    destination = request.args.get("destination")
+
+    if not destination:
+        return jsonify({"error": "destination is required"}), 400
+
+    recommendations, error = get_flight_recommendations(trip, origin, destination)
+    if error:
+        return jsonify({"error": error}), 503
+
+    return jsonify(recommendations), 200
+
+
+@ai_bp.route("/api/ai/<trip_id>/activities", methods=["POST"])
+@require_auth
+def ai_activity_recommendations(trip_id):
+    """Hybrid LLM + Google Places activity recommendations."""
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({"error": "Trip not found"}), 404
+    if trip["user_id"] != request.uid:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    allocation = BudgetAllocation.get(trip_id)
+    if not allocation:
+        return jsonify({"error": "No budget allocation found"}), 400
+
+    result, error = get_activity_recommendations(trip, allocation)
+    if error:
+        return jsonify({"error": error}), 503
+
+    return jsonify({"advice": result["text"], "items": result["items"]}), 200

@@ -48,3 +48,15 @@ class Trip:
     @staticmethod
     def delete(trip_id):
         db.collection(Trip.COLLECTION).document(trip_id).delete()
+
+    # Itinerary helpers
+    @staticmethod
+    def get_itinerary(trip_id):
+        trip = Trip.get(trip_id)
+        if not trip:
+            return None
+        return trip.get('itinerary', [])
+
+    @staticmethod
+    def update_itinerary(trip_id, itinerary):
+        Trip.update(trip_id, {'itinerary': itinerary})

@@ -18,16 +18,34 @@ export default function ProtectedRoute() {
   }, [id, user])
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-surface-light">
-      <div className="w-8 h-8 border-4 border-apple-blue border-t-transparent rounded-full animate-spin" />
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--paper)',
+      }}
+    >
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          border: '2px solid var(--rule)',
+          borderTopColor: 'var(--indigo)',
+          borderRadius: '50%',
+          animation: 'spin 0.9s linear infinite',
+        }}
+      />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
   if (!user) return <Navigate to="/login" replace />
 
   return (
-    <div className="flex min-h-screen">
+    <div className="ed-shell">
       <Sidebar tripName={tripName} />
-      <main className="flex-1 bg-surface-light p-8 pt-20 md:pt-8 overflow-y-auto">
+      <main className="ed-main">
         <Outlet />
       </main>
     </div>

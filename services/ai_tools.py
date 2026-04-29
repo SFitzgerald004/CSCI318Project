@@ -1,4 +1,5 @@
 """AI tool schemas and implementations. Registered in TOOL_REGISTRY."""
+from __future__ import annotations
 import json
 from models.recommendation import Recommendation
 from models.savings_plan import SavingsPlan

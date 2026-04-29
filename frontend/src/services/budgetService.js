@@ -10,6 +10,11 @@ export async function createAllocation(tripId) {
   return data
 }
 
+export async function updateAllocation(tripId, amounts) {
+  const { data } = await api.put(`/budget/${tripId}/allocate`, { amounts })
+  return data
+}
+
 export async function getSavings(tripId) {
   const { data } = await api.get(`/budget/${tripId}/savings`)
   return data

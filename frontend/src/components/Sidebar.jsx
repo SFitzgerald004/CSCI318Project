@@ -1,17 +1,61 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import {
-  Squares2X2Icon,
-  CalculatorIcon,
-  SparklesIcon,
-  BookmarkIcon,
-  PaperAirplaneIcon,
-  Bars3Icon,
-  XMarkIcon,
-  ArrowLeftIcon,
-} from '@heroicons/react/24/outline';
 import { useAuth } from '../context/useAuth';
-import Button from './ui/Button';
+
+// Editorial inline icon — mirrors design's Icon primitive (24x24 viewBox)
+function EdIcon({ name, size = 14, stroke = 1.6 }) {
+  const paths = {
+    plane:   <path d="m22 12-7 6V14L3 13v-2l12-1V6l7 6Z" />,
+    wallet:  (
+      <>
+        <rect x="3" y="6" width="18" height="14" rx="2" />
+        <path d="M3 10h18" />
+        <circle cx="17" cy="15" r="1.2" fill="currentColor" />
+      </>
+    ),
+    pig: (
+      <>
+        <path d="M5 12a7 7 0 0 1 14 0v3l2 1v3h-3l-1 2h-3v-2H10v2H7l-1-2H4v-3l1-1v-3z" />
+        <circle cx="9" cy="11" r=".8" fill="currentColor" />
+      </>
+    ),
+    sparkle: (
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.5 5.5l2.8 2.8M15.7 15.7l2.8 2.8M5.5 18.5l2.8-2.8M15.7 8.3l2.8-2.8" />
+    ),
+    map: (
+      <>
+        <path d="M3 6v15l6-3 6 3 6-3V3l-6 3-6-3-6 3z" />
+        <path d="M9 3v15M15 6v15" />
+      </>
+    ),
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 1v3M12 20v3M3 12H1M23 12h-2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" />
+      </>
+    ),
+    arrowLeft: <path d="M19 12H5M12 19l-7-7 7-7" />,
+    menu:      <path d="M4 6h16M4 12h16M4 18h16" />,
+    close:     <path d="M6 6l12 12M18 6 6 18" />,
+    cal:       <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
+    flight:    <path d="M3 16v-2l8-3V5a1.5 1.5 0 0 1 3 0v6l8 3v2l-8-2v4l2 1v2l-3.5-1L9 21v-2l2-1v-4l-8 2z" />,
+  };
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={stroke}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  );
+}
 
 export default function Sidebar({ tripName }) {
   const { id } = useParams();
@@ -29,56 +73,122 @@ export default function Sidebar({ tripName }) {
   }, [mobileOpen]);
 
   const isActive = (path) => location.pathname === path;
-  const linkClass = (path) =>
-    `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
-      isActive(path)
-        ? 'bg-apple-blue text-white font-medium'
-        : 'text-white/60 hover:text-white hover:bg-white/5'
-    }`;
+  const itemClass = (active) => `ed-nav-item ${active ? 'active' : ''}`;
+
+  // Reuse first-letter chunk of email as fallback display name.
+  const handle = user?.email?.split('@')[0] || 'Traveler';
 
   const sidebarContent = (
     <>
-      <Link to="/trips" className="flex items-center gap-2 text-white type-tile-heading mb-6">
-        <PaperAirplaneIcon className="w-5 h-5" />
-        TripBudget
+      <Link to="/trips" className="ed-brand" onClick={() => setMobileOpen(false)}>
+        <span className="brand-dot" />
+        Wayfare
       </Link>
 
       {id ? (
         <>
-          <Link to="/trips" className="flex items-center gap-1 text-white/60 text-sm mb-4 hover:text-white">
-            <ArrowLeftIcon className="w-4 h-4" /> All Trips
+          <Link
+            to="/trips"
+            className="ed-nav-item"
+            style={{ color: 'var(--ink-3)', fontSize: 12 }}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="arrowLeft" size={12} /></span>All trips
           </Link>
-          <p className="px-3 text-xs uppercase tracking-wider text-white/40 mb-2">
-            {tripName || 'Trip'}
-          </p>
-          <nav className="flex flex-col gap-1">
-            <Link to={`/trips/${id}`} className={linkClass(`/trips/${id}`)}>
-              <Squares2X2Icon className="w-4 h-4" /> Overview
-            </Link>
-            <Link to={`/trips/${id}/budget`} className={linkClass(`/trips/${id}/budget`)}>
-              <CalculatorIcon className="w-4 h-4" /> Budget
-            </Link>
-            <Link to={`/trips/${id}/ai`} className={linkClass(`/trips/${id}/ai`)}>
-              <SparklesIcon className="w-4 h-4" /> AI Advisor
-            </Link>
-            <Link to={`/trips/${id}/recommendations`} className={linkClass(`/trips/${id}/recommendations`)}>
-              <BookmarkIcon className="w-4 h-4" /> Recommendations
-            </Link>
-          </nav>
+          <div className="ed-nav-section">{tripName ? `Issue · ${tripName}` : 'Trip'}</div>
+          <Link
+            to={`/trips/${id}`}
+            className={itemClass(isActive(`/trips/${id}`))}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="plane" /></span>Overview
+          </Link>
+          <Link
+            to={`/trips/${id}/budget`}
+            className={itemClass(isActive(`/trips/${id}/budget`))}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="wallet" /></span>Budget
+          </Link>
+          <Link
+            to={`/trips/${id}/itinerary`}
+            className={itemClass(isActive(`/trips/${id}/itinerary`))}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="cal" /></span>Itinerary
+          </Link>
+          <Link
+            to={`/trips/${id}/flights`}
+            className={itemClass(isActive(`/trips/${id}/flights`))}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="flight" /></span>Flights
+          </Link>
+          <Link
+            to={`/trips/${id}/ai`}
+            className={itemClass(isActive(`/trips/${id}/ai`))}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="sparkle" /></span>Advisor
+          </Link>
+          <Link
+            to={`/trips/${id}/recommendations`}
+            className={itemClass(isActive(`/trips/${id}/recommendations`))}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="map" /></span>Discover
+          </Link>
         </>
       ) : (
-        <nav className="flex flex-col gap-1">
-          <Link to="/trips" className={linkClass('/trips')}>
-            <Squares2X2Icon className="w-4 h-4" /> My Trips
+        <>
+          <div className="ed-nav-section">Plan</div>
+          <Link
+            to="/trips"
+            className={itemClass(isActive('/trips'))}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="glyph"><EdIcon name="plane" /></span>Trips
           </Link>
-        </nav>
+        </>
       )}
 
-      <div className="mt-auto pt-4 border-t border-white/10">
-        <p className="text-white/40 text-xs truncate">{user?.email}</p>
-        <Button variant="ghost" size="sm" onClick={logout} className="mt-2 !px-0 !text-white/50 hover:!text-white">
-          Sign Out
-        </Button>
+      <div style={{ flex: 1 }} />
+
+      <button
+        type="button"
+        onClick={logout}
+        className="ed-nav-item"
+        style={{ background: 'none', border: 0, textAlign: 'left', width: '100%', cursor: 'pointer' }}
+      >
+        <span className="glyph"><EdIcon name="settings" /></span>Sign out
+      </button>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: 10,
+          marginTop: 6,
+          borderTop: '1px solid var(--rule)',
+          paddingTop: 14,
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #5b5fc7, #a8aaed)',
+            flexShrink: 0,
+          }}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2, minWidth: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {handle}
+          </span>
+          <span className="cap" style={{ fontSize: 10 }}>Solo traveler</span>
+        </div>
       </div>
     </>
   );
@@ -89,37 +199,37 @@ export default function Sidebar({ tripName }) {
         type="button"
         aria-label="Open menu"
         onClick={() => setMobileOpen(true)}
-        className="fixed top-4 left-4 z-40 md:hidden bg-black/80 backdrop-blur-xl text-white p-2 rounded-lg"
+        className="ed-mobile-toggle"
       >
-        <Bars3Icon className="w-6 h-6" />
+        <EdIcon name="menu" size={18} />
       </button>
 
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="md:hidden"
+          style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(16,16,18,0.4)' }}
           onClick={() => setMobileOpen(false)}
           data-testid="sidebar-overlay"
         />
       )}
 
-      <aside
-        className={`
-          fixed md:sticky top-0 left-0 z-50 md:z-0
-          w-56 min-h-screen flex flex-col p-5 flex-shrink-0
-          bg-black/80 backdrop-blur-xl
-          transition-transform duration-250 ease-out
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
-        style={{ backdropFilter: 'saturate(180%) blur(20px)' }}
-      >
+      <aside className={`ed-sidebar ${mobileOpen ? 'open' : ''}`}>
         {mobileOpen && (
           <button
             type="button"
             aria-label="Close menu"
             onClick={() => setMobileOpen(false)}
-            className="md:hidden absolute top-4 right-4 text-white/60 hover:text-white"
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: 14,
+              background: 'none',
+              border: 0,
+              color: 'var(--ink-3)',
+              cursor: 'pointer',
+            }}
           >
-            <XMarkIcon className="w-6 h-6" />
+            <EdIcon name="close" size={18} />
           </button>
         )}
         {sidebarContent}

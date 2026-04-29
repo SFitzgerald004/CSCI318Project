@@ -16,39 +16,40 @@ function renderSidebar({ tripName = undefined, path = '/trips' } = {}) {
 }
 
 describe('<Sidebar>', () => {
-  it('renders TripBudget wordmark', () => {
+  it('renders Wayfare wordmark', () => {
     renderSidebar();
-    expect(screen.getByText('TripBudget')).toBeInTheDocument();
+    expect(screen.getByText('Wayfare')).toBeInTheDocument();
   });
 
-  it('shows "My Trips" link when not in a trip', () => {
+  it('shows Trips link when not in a trip', () => {
     renderSidebar();
-    expect(screen.getByText('My Trips')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^trips$/i })).toBeInTheDocument();
   });
 
-  it('renders user email', () => {
+  it('renders user handle from email', () => {
     renderSidebar();
-    expect(screen.getByText('test@example.com')).toBeInTheDocument();
+    // editorial sidebar displays the local-part (handle), not the full email
+    expect(screen.getByText('test')).toBeInTheDocument();
   });
 
-  it('renders Sign Out button', () => {
+  it('renders Sign out button', () => {
     renderSidebar();
-    expect(screen.getByText('Sign Out')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument();
   });
 
-  it('calls logout when Sign Out clicked', () => {
+  it('calls logout when Sign out clicked', () => {
     const mockAuth = { user: { email: 'test@example.com' }, logout: vi.fn() };
     render(
       <AuthContext.Provider value={mockAuth}>
         <MemoryRouter><Sidebar /></MemoryRouter>
       </AuthContext.Provider>
     );
-    fireEvent.click(screen.getByText('Sign Out'));
+    fireEvent.click(screen.getByRole('button', { name: /sign out/i }));
     expect(mockAuth.logout).toHaveBeenCalled();
   });
 
-  it('has backdrop-blur class on aside (glass treatment)', () => {
+  it('uses the editorial sidebar shell (paper background, not glass)', () => {
     const { container } = renderSidebar();
-    expect(container.querySelector('aside').className).toMatch(/backdrop-blur/);
+    expect(container.querySelector('aside').className).toMatch(/ed-sidebar/);
   });
 });

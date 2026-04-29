@@ -50,10 +50,68 @@ def get_allocation(trip_id):
         return jsonify({'error': 'Trip not found'}), 404
     if trip['user_id'] != request.uid:
         return jsonify({'error': 'Unauthorized'}), 403
-    
+
     allocation = BudgetAllocation.get(trip_id)
     if not allocation:
         return jsonify({'error': 'No allocation found, POST to generate one'}), 404
+    return jsonify(allocation), 200
+
+
+CATEGORY_KEYS = ('flights', 'hotel', 'food', 'activities', 'transport', 'misc')
+
+
+@budget_bp.route('/api/budget/<trip_id>/allocate', methods=['PUT'])
+@require_auth
+def update_allocation(trip_id):
+    """Manual allocation override.
+
+    Body: {"amounts": {"flights": 1200, "hotel": 1500, ...}}
+    Percentages are recomputed from amounts so the two never drift.
+    """
+    trip = Trip.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    if trip['user_id'] != request.uid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    body = request.get_json(silent=True) or {}
+    raw_amounts = body.get('amounts')
+    if not isinstance(raw_amounts, dict):
+        return jsonify({'error': 'amounts must be an object keyed by category'}), 400
+
+    # Coerce + sanity-check every category. Missing keys default to 0.
+    try:
+        amounts = {
+            k: max(0, int(round(float(raw_amounts.get(k, 0)))))
+            for k in CATEGORY_KEYS
+        }
+    except (TypeError, ValueError):
+        return jsonify({'error': 'amounts must be numbers'}), 400
+
+    total = sum(amounts.values())
+    target = int(trip['total_budget'])
+
+    # Allow $1 of rounding slack; otherwise reject so the user can correct.
+    if abs(total - target) > 1:
+        return jsonify({
+            'error': f'Sum of amounts (${total}) must equal total budget (${target})',
+            'sum': total,
+            'target': target,
+        }), 400
+
+    # Recompute percentages from amounts; absorb any rounding error into
+    # the largest category so the percentages always sum to exactly 100.
+    if total > 0:
+        raw_pcts = {k: round((v / total) * 100) for k, v in amounts.items()}
+        diff = 100 - sum(raw_pcts.values())
+        if diff != 0:
+            biggest = max(amounts, key=amounts.get)
+            raw_pcts[biggest] += diff
+        percentages = raw_pcts
+    else:
+        percentages = {k: 0 for k in CATEGORY_KEYS}
+
+    allocation = BudgetAllocation.save(trip_id, amounts, percentages)
     return jsonify(allocation), 200
 
 @budget_bp.route('/api/budget/<trip_id>/savings', methods=['POST'])                                                           
