@@ -76,30 +76,33 @@ def get_recommendations(trip, allocation, focus):
                   }}
                 ]"""
     
-    try:
+    try:                                                                                                                                      
         response = client.chat.completions.create(
             model=MODEL,
             max_tokens=600,
-            messages=[
+            messages=[                                                                                                                        
                 {'role': 'system', 'content': 'You are a travel advisor. Respond only with valid JSON, no markdown, no extra text.'},
-                {'role': 'user', 'content': prompt}
-            ]
-        )
-        import json
+                {'role': 'user', 'content': prompt}                                                                                           
+            ]       
+        )                                                                                                                                     
+        import json 
         raw = response.choices[0].message.content
-        items = json.loads(raw)  # parse the JSON list
-        # Also build a readable version for the chat panel
+        items = json.loads(raw)                                                                                                               
+        if not isinstance(items, list):   # <-- guard added
+            return {'text': raw, 'items': []}, None                                                                                           
         readable = "\n".join([f"{i+1}. {r['name']} ({r.get('price_level','')}) — {r.get('description','')}" for i, r in enumerate(items)])
-        return {'text': readable, 'items': items}, None
-    except json.JSONDecodeError:
-        # If GPT doesn't return valid JSON, fall back to raw text
-        return {'text': raw, 'items': []}, None
-    except openai.APIConnectionError:
+        return {'text': readable, 'items': items}, None                                                                                       
+    except json.JSONDecodeError:                                                                                                              
+        return {'text': raw, 'items': []}, None                                                                                               
+    except openai.APIConnectionError:                                                                                                         
         return None, 'Could not reach AI service'
-    except openai.RateLimitError:
+    except openai.RateLimitError:                                                                                                             
         return None, 'AI service rate limit hit, try again shortly'
-    except openai.APIStatusError as e:
+    except openai.APIStatusError as e:                                                                                                        
         return None, f'AI error: {e.status_code}'
+    except Exception as e:                                                                                                                    
+        print(f'[ai_service] get_recommendations error: {e}')
+        return None, 'AI service encountered an unexpected error'
     
 # Used to chat with AI model in trip
 def chat_with_ai(trip, user_message, history=None):
